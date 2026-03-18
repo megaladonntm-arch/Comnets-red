@@ -1,5 +1,10 @@
 [build]
   base = "frontend"
-  command = "npm install --include=dev && npm run build"
-  publish = "frontend/dist"
+  command = "npm ci --include=dev && node ./node_modules/vite/bin/vite.js build"
+  publish = "dist"
 
+[build.environment]
+  NODE_VERSION = "18"
+  NPM_VERSION = "10"
+  VITE_API_URL = "https://comnets-red-production.up.railway.app"
+  VITE_WS_URL = "wss://comnets-red-production.up.railway.app"
