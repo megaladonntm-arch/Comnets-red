@@ -5,3 +5,5 @@
 
 [build.environment]
   NODE_VERSION = "18"
+  VITE_API_URL = "https://comnets-red-production.up.railway.app"
+  VITE_WS_URL = "wss://comnets-red-production.up.railway.app"
