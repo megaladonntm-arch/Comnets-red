@@ -16,7 +16,10 @@ Base = declarative_base()
 
 def _ensure_schema(sync_conn):
     inspector = inspect(sync_conn)
+    dialect_name = sync_conn.dialect.name
     tables = set(inspector.get_table_names())
+    datetime_sql = "TIMESTAMP WITH TIME ZONE" if dialect_name == "postgresql" else "DATETIME"
+    false_sql = "FALSE" if dialect_name == "postgresql" else "0"
 
     if "users" in tables:
         user_columns = {column["name"] for column in inspector.get_columns("users")}
@@ -35,9 +38,9 @@ def _ensure_schema(sync_conn):
                 text("ALTER TABLE users ADD COLUMN presence VARCHAR(16) NOT NULL DEFAULT 'online'")
             )
         if "created_at" not in user_columns:
-            sync_conn.execute(text("ALTER TABLE users ADD COLUMN created_at DATETIME"))
+            sync_conn.execute(text(f"ALTER TABLE users ADD COLUMN created_at {datetime_sql}"))
         if "last_seen_at" not in user_columns:
-            sync_conn.execute(text("ALTER TABLE users ADD COLUMN last_seen_at DATETIME"))
+            sync_conn.execute(text(f"ALTER TABLE users ADD COLUMN last_seen_at {datetime_sql}"))
         sync_conn.execute(
             text(
                 "UPDATE users SET created_at = COALESCE(created_at, CURRENT_TIMESTAMP), "
@@ -53,7 +56,7 @@ def _ensure_schema(sync_conn):
         if "whiteboard_enabled" not in room_columns:
             sync_conn.execute(
                 text(
-                    "ALTER TABLE rooms ADD COLUMN whiteboard_enabled BOOLEAN NOT NULL DEFAULT 0"
+                    f"ALTER TABLE rooms ADD COLUMN whiteboard_enabled BOOLEAN NOT NULL DEFAULT {false_sql}"
                 )
             )
         if "whiteboard_state" not in room_columns:
@@ -66,7 +69,7 @@ def _ensure_schema(sync_conn):
         if "is_active" not in room_user_columns:
             sync_conn.execute(
                 text(
-                    "ALTER TABLE room_users ADD COLUMN is_active BOOLEAN NOT NULL DEFAULT 0"
+                    f"ALTER TABLE room_users ADD COLUMN is_active BOOLEAN NOT NULL DEFAULT {false_sql}"
                 )
             )
 
