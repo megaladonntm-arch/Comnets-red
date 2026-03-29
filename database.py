@@ -18,6 +18,36 @@ def _ensure_schema(sync_conn):
     inspector = inspect(sync_conn)
     tables = set(inspector.get_table_names())
 
+    if "users" in tables:
+        user_columns = {column["name"] for column in inspector.get_columns("users")}
+        if "display_name" not in user_columns:
+            sync_conn.execute(text("ALTER TABLE users ADD COLUMN display_name VARCHAR(80)"))
+        if "status_text" not in user_columns:
+            sync_conn.execute(
+                text("ALTER TABLE users ADD COLUMN status_text VARCHAR(140) NOT NULL DEFAULT ''")
+            )
+        if "bio" not in user_columns:
+            sync_conn.execute(text("ALTER TABLE users ADD COLUMN bio TEXT NOT NULL DEFAULT ''"))
+        if "avatar_data" not in user_columns:
+            sync_conn.execute(text("ALTER TABLE users ADD COLUMN avatar_data TEXT"))
+        if "presence" not in user_columns:
+            sync_conn.execute(
+                text("ALTER TABLE users ADD COLUMN presence VARCHAR(16) NOT NULL DEFAULT 'online'")
+            )
+        if "created_at" not in user_columns:
+            sync_conn.execute(text("ALTER TABLE users ADD COLUMN created_at DATETIME"))
+        if "last_seen_at" not in user_columns:
+            sync_conn.execute(text("ALTER TABLE users ADD COLUMN last_seen_at DATETIME"))
+        sync_conn.execute(
+            text(
+                "UPDATE users SET created_at = COALESCE(created_at, CURRENT_TIMESTAMP), "
+                "last_seen_at = COALESCE(last_seen_at, CURRENT_TIMESTAMP), "
+                "status_text = COALESCE(status_text, ''), "
+                "bio = COALESCE(bio, ''), "
+                "presence = COALESCE(presence, 'online')"
+            )
+        )
+
     if "rooms" in tables:
         room_columns = {column["name"] for column in inspector.get_columns("rooms")}
         if "whiteboard_enabled" not in room_columns:

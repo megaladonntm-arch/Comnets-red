@@ -1,13 +1,18 @@
 export default function TopBar({
   authed,
   username,
+  profile,
   onLogout,
   roomName,
   onLoginClick,
   onRegisterClick,
   onBack,
-  onSettingsClick
+  onSettingsClick,
+  onProfileClick
 }) {
+  const avatarLabel = (profile?.display_name || username || "?").slice(0, 2).toUpperCase();
+  const profileName = profile?.display_name || username;
+
   return (
     <header className="topbar">
       <div className="brand">
@@ -36,9 +41,18 @@ export default function TopBar({
           {authed ? (
             <>
               <div className="user-chip">
-                <div className="avatar-sm">{(username || "?").slice(0, 2).toUpperCase()}</div>
-                <span>@{username}</span>
+                <div className="avatar-sm">
+                  {profile?.avatar_data ? (
+                    <img src={profile.avatar_data} alt={profileName || username} />
+                  ) : (
+                    avatarLabel
+                  )}
+                </div>
+                <span>{profileName || username}</span>
               </div>
+              <button className="ghost" onClick={onProfileClick} type="button">
+                Profile
+              </button>
               <button className="ghost" onClick={onSettingsClick} type="button">
                 Settings
               </button>
@@ -69,6 +83,11 @@ export default function TopBar({
 
       {roomName && roomName !== "Auth" && onSettingsClick && (
         <div className="top-actions">
+          {onProfileClick && (
+            <button className="ghost" onClick={onProfileClick} type="button">
+              Profile
+            </button>
+          )}
           <button className="ghost" onClick={onSettingsClick} type="button">
             Settings
           </button>

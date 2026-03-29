@@ -11,6 +11,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from database import SessionLocal
 from models.models import Room, RoomUser, User
 from services.auth import decode_token
+from services.profiles import get_user_by_id, touch_user_last_seen
 from services.rooms import MAX_ROOM_USERS, count_room_users, get_room_by_id, get_room_user
 
 router = APIRouter()
@@ -429,6 +430,12 @@ def build_participant_state(user: User, room_user: RoomUser, video_enabled: bool
     return {
         "id": user.id,
         "username": user.username,
+        "display_name": user.display_name,
+        "status_text": user.status_text or "",
+        "avatar_data": user.avatar_data,
+        "presence": user.presence or "online",
+        "last_seen_at": user.last_seen_at.isoformat() if user.last_seen_at else None,
+        "is_online": True,
         "audio_enabled": not room_user.is_muted,
         "video_enabled": video_enabled,
     }
@@ -518,6 +525,7 @@ async def room_ws(websocket: WebSocket, room_id: int):
             return
 
         room_user = await set_room_user_active(db, room_user, is_active=True)
+        user = await touch_user_last_seen(db, user)
         participant = build_participant_state(user, room_user)
         whiteboard_state = load_room_whiteboard_state(room)
 
@@ -613,6 +621,38 @@ async def room_ws(websocket: WebSocket, room_id: int):
                     ),
                 )
                 if participant:
+                    await manager.broadcast(
+                        room_id, {"type": "participant_state", "participant": participant}
+                    )
+            elif event_type == "profile_refresh":
+                refreshed_user = await get_user_by_id(db, user.id)
+                current_participant = manager.get_participant(room_id, user.id)
+                if not refreshed_user or not current_participant:
+                    continue
+
+                participant = manager.set_participant_state(
+                    room_id,
+                    user.id,
+                    display_name=refreshed_user.display_name,
+                    status_text=refreshed_user.status_text or "",
+                    avatar_data=refreshed_user.avatar_data,
+                    presence=refreshed_user.presence or "online",
+                    is_online=True,
+                    last_seen_at=(
+                        refreshed_user.last_seen_at.isoformat()
+                        if refreshed_user.last_seen_at
+                        else None
+                    ),
+                )
+                if participant:
+                    participant["audio_enabled"] = current_participant["audio_enabled"]
+                    participant["video_enabled"] = current_participant["video_enabled"]
+                    manager.set_participant_state(
+                        room_id,
+                        user.id,
+                        audio_enabled=current_participant["audio_enabled"],
+                        video_enabled=current_participant["video_enabled"],
+                    )
                     await manager.broadcast(
                         room_id, {"type": "participant_state", "participant": participant}
                     )
@@ -757,6 +797,7 @@ async def room_ws(websocket: WebSocket, room_id: int):
             disconnected_current = manager.disconnect(room_id, user.id, websocket)
             if disconnected_current:
                 await set_room_user_active(db, room_user, is_active=False)
+                await touch_user_last_seen(db, user)
                 await manager.broadcast(
                     room_id, {"type": "participant_left", "user_id": user.id}
                 )

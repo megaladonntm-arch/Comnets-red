@@ -72,6 +72,21 @@ class ApiClient {
     });
   }
 
+  getMyProfile() {
+    return this.request("/profile/me");
+  }
+
+  updateMyProfile(payload) {
+    return this.request("/profile/me", {
+      method: "PUT",
+      body: JSON.stringify(payload)
+    });
+  }
+
+  getUserProfile(userId) {
+    return this.request(`/profile/users/${userId}`);
+  }
+
   getRooms() {
     return this.request("/rooms");
   }

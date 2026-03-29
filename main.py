@@ -3,7 +3,7 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from config import CORS_ORIGINS
 from database import init_db
-from routers import auth, rooms, ws
+from routers import auth, profile, rooms, ws
 
 app = FastAPI(title="Comnot")
 
@@ -11,7 +11,7 @@ app.add_middleware(
     CORSMiddleware,
     allow_origins=CORS_ORIGINS,
     allow_credentials=False,
-    allow_methods=["GET", "POST", "OPTIONS"],
+    allow_methods=["GET", "POST", "PUT", "OPTIONS"],
     allow_headers=["Authorization", "Content-Type"],
 )
 
@@ -22,6 +22,7 @@ async def on_startup():
 
 
 app.include_router(auth.router)
+app.include_router(profile.router)
 app.include_router(rooms.router)
 app.include_router(ws.router)
 

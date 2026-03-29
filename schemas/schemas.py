@@ -1,4 +1,5 @@
-from typing import Optional
+from datetime import datetime
+from typing import Literal, Optional
 
 from pydantic import BaseModel, ConfigDict, Field, constr
 
@@ -11,6 +12,11 @@ UsernameStr = constr(
 PasswordStr = constr(min_length=8, max_length=128)
 RoomNameStr = constr(strip_whitespace=True, min_length=3, max_length=80)
 RoomCodeStr = constr(strip_whitespace=True, pattern=r"^\d{5}$")
+DisplayNameStr = constr(strip_whitespace=True, min_length=1, max_length=40)
+StatusTextStr = constr(strip_whitespace=True, min_length=1, max_length=120)
+BioStr = constr(strip_whitespace=True, min_length=1, max_length=280)
+AvatarDataStr = constr(strip_whitespace=True, min_length=20, max_length=600000)
+PresenceStr = Literal["online", "busy", "away", "invisible"]
 
 
 class StrictSchema(BaseModel):
@@ -30,6 +36,34 @@ class UserLogin(StrictSchema):
 class Token(StrictSchema):
     access_token: str
     token_type: str = "bearer"
+
+
+class UserProfileUpdate(StrictSchema):
+    display_name: Optional[DisplayNameStr] = None
+    status_text: Optional[StatusTextStr] = None
+    bio: Optional[BioStr] = None
+    avatar_data: Optional[AvatarDataStr] = None
+    presence: PresenceStr = "online"
+
+
+class UserProfileSummary(StrictSchema):
+    id: int
+    username: str
+    display_name: Optional[str] = None
+    status_text: str = ""
+    avatar_data: Optional[str] = None
+    presence: PresenceStr = "online"
+    is_online: bool = False
+    last_seen_at: Optional[datetime] = None
+
+
+class UserProfileOut(UserProfileSummary):
+    bio: str = ""
+    created_at: Optional[datetime] = None
+    rooms_joined: int = 0
+    rooms_owned: int = 0
+    active_room_id: Optional[int] = None
+    active_room_name: Optional[str] = None
 
 
 class RoomCreate(StrictSchema):

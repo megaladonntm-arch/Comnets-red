@@ -1,4 +1,4 @@
-export default function UserGrid({ slots, isOwner, onMute, onBan }) {
+export default function UserGrid({ slots, isOwner, onOpenProfile, onMute, onBan }) {
   return (
     <div className="grid">
       {slots.map((user, index) => (
@@ -6,13 +6,22 @@ export default function UserGrid({ slots, isOwner, onMute, onBan }) {
           {user ? (
             <>
               <div className="user-card-head">
-                <div className="avatar">{user.username.slice(0, 2).toUpperCase()}</div>
+                <button className="avatar-button" type="button" onClick={() => onOpenProfile?.(user)}>
+                  <div className="avatar">
+                    {user.avatarData ? (
+                      <img src={user.avatarData} alt={user.username} />
+                    ) : (
+                      user.username.slice(0, 2).toUpperCase()
+                    )}
+                  </div>
+                </button>
                 <div className="user-card-copy">
                   <p className="eyebrow">{user.self ? "You" : `Seat 0${index + 1}`}</p>
                   <h4>{user.username}</h4>
                   <p className={user.online ? "active" : "muted"}>
                     {user.online ? "Connected now" : "Offline"}
                   </p>
+                  {user.statusText ? <p className="user-status-text">{user.statusText}</p> : null}
                 </div>
                 {user.speaking && <span className="mic-pill">Speaking</span>}
               </div>

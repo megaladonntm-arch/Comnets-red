@@ -3,6 +3,7 @@ import Home from "./pages/Home.jsx";
 import Room from "./pages/Room.jsx";
 import AuthPage from "./pages/Auth.jsx";
 import UserSettingsModal from "./components/UserSettingsModal.jsx";
+import UserProfileModal from "./components/UserProfileModal.jsx";
 import { api } from "./services/api.js";
 
 const STORAGE_KEY = "comnot_auth";
@@ -24,6 +25,8 @@ export default function App() {
   const [authView, setAuthView] = useState({ open: false, mode: "login" });
   const [settings, setSettings] = useState(DEFAULT_SETTINGS);
   const [settingsOpen, setSettingsOpen] = useState(false);
+  const [currentProfile, setCurrentProfile] = useState(null);
+  const [profileOpen, setProfileOpen] = useState(false);
 
   useEffect(() => {
     const raw = localStorage.getItem(STORAGE_KEY);
@@ -43,8 +46,29 @@ export default function App() {
     if (!token) {
       setCurrentRoom(null);
       setIsOwner(false);
+      setCurrentProfile(null);
     }
   }, [token]);
+
+  useEffect(() => {
+    if (!token) return;
+    let cancelled = false;
+
+    const loadProfile = async () => {
+      try {
+        const profile = await api.getMyProfile();
+        if (!cancelled) setCurrentProfile(profile);
+      } catch {
+        if (!cancelled) setCurrentProfile(null);
+      }
+    };
+
+    void loadProfile();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [currentRoom?.id, token]);
 
   useEffect(() => {
     const storageKey = `${SETTINGS_STORAGE_PREFIX}_${username || "guest"}`;
@@ -96,6 +120,12 @@ export default function App() {
     setToken("");
     setUsername("");
     localStorage.removeItem(STORAGE_KEY);
+  };
+
+  const saveProfile = async (payload) => {
+    const profile = await api.updateMyProfile(payload);
+    setCurrentProfile(profile);
+    return profile;
   };
 
   const refreshRooms = useCallback(async () => {
@@ -155,8 +185,10 @@ export default function App() {
           token={token}
           isOwner={isOwner}
           settings={settings}
+          currentProfile={currentProfile}
           onLeave={() => setCurrentRoom(null)}
           onOpenSettings={() => setSettingsOpen(true)}
+          onOpenProfile={() => setProfileOpen(true)}
         />
         {settingsOpen && (
           <UserSettingsModal
@@ -164,6 +196,14 @@ export default function App() {
             settings={settings}
             onClose={() => setSettingsOpen(false)}
             onSave={setSettings}
+          />
+        )}
+        {profileOpen && currentProfile && (
+          <UserProfileModal
+            profile={currentProfile}
+            editable
+            onClose={() => setProfileOpen(false)}
+            onSave={saveProfile}
           />
         )}
       </>
@@ -188,6 +228,14 @@ export default function App() {
             onSave={setSettings}
           />
         )}
+        {profileOpen && currentProfile && (
+          <UserProfileModal
+            profile={currentProfile}
+            editable
+            onClose={() => setProfileOpen(false)}
+            onSave={saveProfile}
+          />
+        )}
       </>
     );
   }
@@ -198,6 +246,7 @@ export default function App() {
         rooms={rooms}
         authed={authed}
         username={username}
+        currentProfile={currentProfile}
         onLogout={logout}
         onRefresh={refreshRooms}
         onCreateRoom={handleCreateRoom}
@@ -207,6 +256,7 @@ export default function App() {
         onJoinRandom={handleJoinRandom}
         onOpenAuth={(mode) => setAuthView({ open: true, mode })}
         onOpenSettings={() => setSettingsOpen(true)}
+        onOpenProfile={() => setProfileOpen(true)}
       />
       {settingsOpen && (
         <UserSettingsModal
@@ -214,6 +264,14 @@ export default function App() {
           settings={settings}
           onClose={() => setSettingsOpen(false)}
           onSave={setSettings}
+        />
+      )}
+      {profileOpen && currentProfile && (
+        <UserProfileModal
+          profile={currentProfile}
+          editable
+          onClose={() => setProfileOpen(false)}
+          onSave={saveProfile}
         />
       )}
     </>

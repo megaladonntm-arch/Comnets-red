@@ -1,4 +1,6 @@
-from sqlalchemy import Boolean, Column, ForeignKey, Integer, String, Text
+from datetime import UTC, datetime
+
+from sqlalchemy import Boolean, Column, DateTime, ForeignKey, Integer, String, Text
 from sqlalchemy.orm import relationship
 
 from database import Base
@@ -10,6 +12,13 @@ class User(Base):
     id = Column(Integer, primary_key=True, index=True)
     username = Column(String(50), unique=True, index=True, nullable=False)
     password_hash = Column(String(255), nullable=False)
+    display_name = Column(String(80), nullable=True)
+    status_text = Column(String(140), nullable=False, default="")
+    bio = Column(Text, nullable=False, default="")
+    avatar_data = Column(Text, nullable=True)
+    presence = Column(String(16), nullable=False, default="online")
+    created_at = Column(DateTime(timezone=True), nullable=False, default=lambda: datetime.now(UTC))
+    last_seen_at = Column(DateTime(timezone=True), nullable=False, default=lambda: datetime.now(UTC))
 
     rooms = relationship("Room", back_populates="owner")
     memberships = relationship("RoomUser", back_populates="user")

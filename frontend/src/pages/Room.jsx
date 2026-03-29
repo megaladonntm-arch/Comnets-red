@@ -2,6 +2,8 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import UserGrid from "../components/UserGrid.jsx";
 import WhiteboardCanvas from "../components/WhiteboardCanvas.jsx";
 import TopBar from "../components/TopBar.jsx";
+import UserProfileModal from "../components/UserProfileModal.jsx";
+import { api } from "../services/api.js";
 import { connectRoomSocket } from "../services/socket.js";
 
 const ICE_SERVERS = [
@@ -17,7 +19,17 @@ const DEFAULT_MEDIA_STATE = {
 
 const RECONNECT_DELAYS = [1000, 2000, 4000, 8000];
 
-export default function Room({ room, username, token, isOwner, onLeave, settings, onOpenSettings }) {
+export default function Room({
+  room,
+  username,
+  token,
+  isOwner,
+  onLeave,
+  settings,
+  currentProfile,
+  onOpenSettings,
+  onOpenProfile
+}) {
   const [participants, setParticipants] = useState({});
   const [selfId, setSelfId] = useState(null);
   const [localStream, setLocalStream] = useState(null);
@@ -29,6 +41,8 @@ export default function Room({ room, username, token, isOwner, onLeave, settings
   const [roomError, setRoomError] = useState("");
   const [whiteboardEnabled, setWhiteboardEnabled] = useState(Boolean(room.whiteboard_enabled));
   const [whiteboardElements, setWhiteboardElements] = useState([]);
+  const [selectedProfile, setSelectedProfile] = useState(null);
+  const [profileLoading, setProfileLoading] = useState(false);
   const socketRef = useRef(null);
   const peersRef = useRef(new Map());
   const localStreamRef = useRef(null);
@@ -65,6 +79,19 @@ export default function Room({ room, username, token, isOwner, onLeave, settings
     socket.send(JSON.stringify(payload));
     return true;
   };
+
+  const toParticipantState = (participant) => ({
+    id: participant.id,
+    username: participant.display_name || participant.username || `User #${participant.id}`,
+    profileUsername: participant.username || `user${participant.id}`,
+    avatarData: participant.avatar_data || null,
+    statusText: participant.status_text || "",
+    presence: participant.presence || "online",
+    lastSeenAt: participant.last_seen_at || null,
+    audioEnabled: participant.audio_enabled !== false,
+    videoEnabled: participant.video_enabled !== false,
+    online: participant.is_online !== false
+  });
 
   const stopSpeakingMonitor = () => {
     if (rafRef.current) {
@@ -422,13 +449,7 @@ export default function Room({ room, username, token, isOwner, onLeave, settings
     if (!participant?.id || participant.id === selfIdRef.current) return;
     setParticipants((prev) => ({
       ...prev,
-      [participant.id]: {
-        id: participant.id,
-        username: participant.username || `User #${participant.id}`,
-        audioEnabled: participant.audio_enabled !== false,
-        videoEnabled: participant.video_enabled !== false,
-        online: true
-      }
+      [participant.id]: toParticipantState(participant)
     }));
   };
 
@@ -573,13 +594,7 @@ export default function Room({ room, username, token, isOwner, onLeave, settings
 
       const existingParticipants = {};
       (event.participants || []).forEach((participant) => {
-        existingParticipants[participant.id] = {
-          id: participant.id,
-          username: participant.username || `User #${participant.id}`,
-          audioEnabled: participant.audio_enabled !== false,
-          videoEnabled: participant.video_enabled !== false,
-          online: true
-        };
+        existingParticipants[participant.id] = toParticipantState(participant);
       });
       setParticipants(existingParticipants);
       setWhiteboardEnabled(event.whiteboard?.enabled === true);
@@ -673,6 +688,8 @@ export default function Room({ room, username, token, isOwner, onLeave, settings
     setWhiteboardElements([]);
     setMediaError("");
     setSelfId(null);
+    setSelectedProfile(null);
+    setProfileLoading(false);
     selfIdRef.current = null;
     mediaStateRef.current = DEFAULT_MEDIA_STATE;
     desiredMediaStateRef.current = DEFAULT_MEDIA_STATE;
@@ -750,11 +767,27 @@ export default function Room({ room, username, token, isOwner, onLeave, settings
     };
   }, [room.id, room.whiteboard_enabled, settings?.audioInputId, settings?.videoInputId, token]);
 
+  useEffect(() => {
+    if (!currentProfile?.id) return;
+    dispatchWS({ type: "profile_refresh" });
+  }, [
+    currentProfile?.avatar_data,
+    currentProfile?.bio,
+    currentProfile?.display_name,
+    currentProfile?.presence,
+    currentProfile?.status_text
+  ]);
+
   const slots = useMemo(() => {
     const list = [
       {
         id: "self",
-        username: `${username} (you)`,
+        username: currentProfile?.display_name || `${username} (you)`,
+        profileUsername: username,
+        avatarData: currentProfile?.avatar_data || null,
+        statusText: currentProfile?.status_text || "",
+        presence: currentProfile?.presence || "online",
+        lastSeenAt: currentProfile?.last_seen_at || null,
         audioEnabled: mediaState.audioEnabled,
         videoEnabled: mediaState.videoEnabled,
         self: true,
@@ -769,7 +802,19 @@ export default function Room({ room, username, token, isOwner, onLeave, settings
       filled.push(null);
     }
     return filled;
-  }, [mediaState.audioEnabled, mediaState.videoEnabled, participants, selfSpeaking, socketState, username]);
+  }, [
+    currentProfile?.avatar_data,
+    currentProfile?.display_name,
+    currentProfile?.last_seen_at,
+    currentProfile?.presence,
+    currentProfile?.status_text,
+    mediaState.audioEnabled,
+    mediaState.videoEnabled,
+    participants,
+    selfSpeaking,
+    socketState,
+    username
+  ]);
 
   const videoTiles = useMemo(() => {
     const remoteTiles = Object.values(participants).map((participant) => ({
@@ -812,9 +857,34 @@ export default function Room({ room, username, token, isOwner, onLeave, settings
     });
   };
 
+  const handleOpenProfile = async (user) => {
+    if (!user) return;
+    if (user.self && onOpenProfile) {
+      onOpenProfile();
+      return;
+    }
+
+    if (!user.id) return;
+    setProfileLoading(true);
+    try {
+      const profile = await api.getUserProfile(user.id);
+      setSelectedProfile(profile);
+    } catch (error) {
+      setRoomError(error.message || "Could not load profile.");
+    } finally {
+      setProfileLoading(false);
+    }
+  };
+
   return (
     <div className="app">
-      <TopBar roomName={room.name} onSettingsClick={onOpenSettings} />
+      <TopBar
+        roomName={room.name}
+        username={username}
+        profile={currentProfile}
+        onSettingsClick={onOpenSettings}
+        onProfileClick={onOpenProfile}
+      />
 
       <main className="room-layout">
         <section className="room-hero card">
@@ -917,6 +987,7 @@ export default function Room({ room, username, token, isOwner, onLeave, settings
             <UserGrid
               slots={slots}
               isOwner={isOwner}
+              onOpenProfile={handleOpenProfile}
               onMute={(id) => dispatchWS({ type: "mute_user", user_id: id })}
               onBan={(id) => dispatchWS({ type: "ban_user", user_id: id })}
             />
@@ -935,6 +1006,17 @@ export default function Room({ room, username, token, isOwner, onLeave, settings
         />
 
         <AudioGrid streams={remoteStreams} />
+
+        {(selectedProfile || profileLoading) && (
+          <UserProfileModal
+            profile={selectedProfile}
+            loading={profileLoading}
+            onClose={() => {
+              setSelectedProfile(null);
+              setProfileLoading(false);
+            }}
+          />
+        )}
       </main>
     </div>
   );

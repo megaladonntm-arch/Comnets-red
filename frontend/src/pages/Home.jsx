@@ -9,6 +9,7 @@ export default function Home({
   rooms,
   authed,
   username,
+  currentProfile,
   onLogout,
   onRefresh,
   onCreateRoom,
@@ -17,7 +18,8 @@ export default function Home({
   onJoinByCode,
   onJoinRandom,
   onOpenAuth,
-  onOpenSettings
+  onOpenSettings,
+  onOpenProfile
 }) {
   const [showCreate, setShowCreate] = useState(false);
   const [joinCode, setJoinCode] = useState("");
@@ -55,10 +57,12 @@ export default function Home({
       <TopBar
         authed={authed}
         username={username}
+        profile={currentProfile}
         onLogout={onLogout}
         onLoginClick={() => onOpenAuth("login")}
         onRegisterClick={() => onOpenAuth("register")}
         onSettingsClick={authed ? onOpenSettings : undefined}
+        onProfileClick={authed ? onOpenProfile : undefined}
       />
 
       <main className="home-shell">
