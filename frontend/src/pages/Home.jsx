@@ -25,6 +25,7 @@ export default function Home({
   const [joinCode, setJoinCode] = useState("");
   const [joinError, setJoinError] = useState("");
   const [joinLoading, setJoinLoading] = useState(false);
+  const [activeTab, setActiveTab] = useState("rooms");
 
   useEffect(() => {
     onRefresh();
@@ -152,6 +153,24 @@ export default function Home({
           </div>
         </section>
 
+        <section className="home-tabs">
+          <button
+            className={activeTab === "rooms" ? "tab active" : "tab"}
+            type="button"
+            onClick={() => setActiveTab("rooms")}
+          >
+            Rooms
+          </button>
+          <button
+            className={activeTab === "creators" ? "tab active" : "tab"}
+            type="button"
+            onClick={() => setActiveTab("creators")}
+          >
+            Creators
+          </button>
+        </section>
+
+        {activeTab === "rooms" ? (
         <section className="layout">
           <section className="rooms-panel">
             <section className="card discovery-panel">
@@ -273,23 +292,27 @@ export default function Home({
               </div>
             </div>
 
-            <div className="card creators-card">
-              <div className="creators-head">
-                <p className="eyebrow">Creators</p>
-                <h3>red</h3>
-              </div>
-              <div className="creator-meta">
-                <span>15 age</span>
-              </div>
-              <div className="creator-tags">
-                <span>Software engineer</span>
-                <span>Programmer</span>
-                <span>Custom designer</span>
-                <span>Engineer</span>
-              </div>
-            </div>
           </section>
         </section>
+        ) : (
+        <section className="creators-layout">
+          <div className="card creators-card featured">
+            <div className="creators-head">
+              <p className="eyebrow">Creator</p>
+              <h2>red</h2>
+            </div>
+            <div className="creator-meta">
+              <span>15 age</span>
+            </div>
+            <div className="creator-tags">
+              <span>Software engineer</span>
+              <span>Programmer</span>
+              <span>Custom designer</span>
+              <span>Engineer</span>
+            </div>
+          </div>
+        </section>
+        )}
       </main>
 
       {authed && (

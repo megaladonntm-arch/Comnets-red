@@ -171,6 +171,12 @@ textarea {
   gap: 22px;
 }
 
+.home-tabs {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
 .topbar {
   position: sticky;
   top: 16px;
@@ -512,6 +518,19 @@ textarea {
 .creators-head {
   display: grid;
   gap: 12px;
+}
+
+.creators-layout {
+  display: grid;
+}
+
+.creators-card.featured {
+  min-height: 320px;
+  align-content: start;
+}
+
+.creators-card.featured h2 {
+  font-size: clamp(2.4rem, 5vw, 4rem);
 }
 
 .creator-meta,
