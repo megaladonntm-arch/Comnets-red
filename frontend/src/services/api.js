@@ -1,4 +1,25 @@
-const BASE_URL = import.meta.env.VITE_API_URL || "http://localhost:8000";
+const ENV_BASE_URL = (
+  import.meta.env.VITE_BACKEND_URL ||
+  import.meta.env.VITE_API_URL
+)?.trim();
+
+function trimTrailingSlash(value) {
+  return value.replace(/\/+$/, "");
+}
+
+function resolveBaseUrl() {
+  if (ENV_BASE_URL) return trimTrailingSlash(ENV_BASE_URL);
+
+  if (typeof window !== "undefined") {
+    const { hostname, origin } = window.location;
+    const isLocalHost = hostname === "localhost" || hostname === "127.0.0.1";
+    return isLocalHost ? "http://localhost:8000" : trimTrailingSlash(origin);
+  }
+
+  return "http://localhost:8000";
+}
+
+const BASE_URL = resolveBaseUrl();
 
 class ApiClient {
   constructor() {
@@ -13,10 +34,15 @@ class ApiClient {
     const headers = { "Content-Type": "application/json", ...(options.headers || {}) };
     if (this.token) headers.Authorization = `Bearer ${this.token}`;
 
-    const response = await fetch(`${BASE_URL}${path}`, {
-      ...options,
-      headers
-    });
+    let response;
+    try {
+      response = await fetch(`${BASE_URL}${path}`, {
+        ...options,
+        headers
+      });
+    } catch {
+      throw new Error("Network error. Check server availability and try again.");
+    }
 
     if (!response.ok) {
       let detail = "Request failed";
@@ -24,7 +50,7 @@ class ApiClient {
         const data = await response.json();
         detail = data.detail || detail;
       } catch {
-        // ignore
+        // ignore malformed error payloads
       }
       throw new Error(detail);
     }

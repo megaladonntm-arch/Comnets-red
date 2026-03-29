@@ -1,23 +1,40 @@
 import { useMemo, useState } from "react";
 import Modal from "./Modal.jsx";
+import { validateRoomName } from "../utils/validation.js";
 
 export default function CreateRoomModal({ onClose, onCreate, onEnter }) {
   const [name, setName] = useState("");
   const [isPrivate, setIsPrivate] = useState(false);
   const [whiteboardEnabled, setWhiteboardEnabled] = useState(false);
   const [createdRoom, setCreatedRoom] = useState(null);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState("");
 
-  const disabled = useMemo(() => !name.trim(), [name]);
+  const disabled = useMemo(() => !name.trim() || loading, [loading, name]);
 
   const handleSubmit = async (event) => {
     event.preventDefault();
-    if (disabled) return;
-    const room = await onCreate({
-      name: name.trim(),
-      is_private: isPrivate,
-      whiteboard_enabled: whiteboardEnabled
-    });
-    setCreatedRoom(room);
+    const trimmedName = name.trim();
+    const nameError = validateRoomName(trimmedName);
+    if (nameError) {
+      setError(nameError);
+      return;
+    }
+
+    setLoading(true);
+    setError("");
+    try {
+      const room = await onCreate({
+        name: trimmedName,
+        is_private: isPrivate,
+        whiteboard_enabled: whiteboardEnabled
+      });
+      setCreatedRoom(room);
+    } catch (submitError) {
+      setError(submitError.message || "Room creation failed.");
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
@@ -27,8 +44,12 @@ export default function CreateRoomModal({ onClose, onCreate, onEnter }) {
           Room title
           <input
             value={name}
-            onChange={(e) => setName(e.target.value)}
+            onChange={(e) => {
+              setName(e.target.value);
+              if (error) setError("");
+            }}
             placeholder="Night shift"
+            maxLength={80}
           />
         </label>
 
@@ -82,9 +103,11 @@ export default function CreateRoomModal({ onClose, onCreate, onEnter }) {
           </div>
         )}
 
+        {error && <p className="form-error">{error}</p>}
+
         {!createdRoom ? (
           <button className="primary" type="submit" disabled={disabled}>
-            Create
+            {loading ? "Creating..." : "Create"}
           </button>
         ) : (
           <button className="primary" type="button" onClick={() => onEnter(createdRoom)}>

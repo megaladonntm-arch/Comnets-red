@@ -6,5 +6,5 @@
 [build.environment]
   NODE_VERSION = "18"
   NPM_VERSION = "10"
-  VITE_API_URL = "https://comnets-red-production.up.railway.app"
-  VITE_WS_URL = "wss://comnets-red-production.up.railway.app"
+  VITE_BACKEND_URL = "https://comnets-red-production.up.railway.app"
+  VITE_FRONTEND_URL = "https://comnets-red.netlify.app"

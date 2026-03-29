@@ -8,10 +8,20 @@ from sqlalchemy.orm import selectinload
 from models.models import Room, RoomUser
 
 MAX_ROOM_USERS = 4
+ROOM_CODE_LENGTH = 5
+ROOM_CODE_ALPHABET = string.digits
 
 
 def generate_room_code() -> str:
-    return "".join(random.choices(string.digits, k=5))
+    return "".join(random.choices(ROOM_CODE_ALPHABET, k=ROOM_CODE_LENGTH))
+
+
+async def generate_unique_room_code(db: AsyncSession) -> str:
+    for _ in range(20):
+        code = generate_room_code()
+        if not await get_room_by_code(db, code):
+            return code
+    raise RuntimeError("failed_to_generate_room_code")
 
 
 async def get_public_rooms(db: AsyncSession):
@@ -88,7 +98,7 @@ async def join_room(db: AsyncSession, room_id: int, user_id: int):
 async def create_room(
     db: AsyncSession, name: str, is_private: bool, owner_id: int, whiteboard_enabled: bool
 ):
-    code = generate_room_code() if is_private else None
+    code = await generate_unique_room_code(db) if is_private else None
     room = Room(
         name=name,
         is_private=is_private,

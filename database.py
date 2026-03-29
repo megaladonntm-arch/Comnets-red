@@ -26,6 +26,10 @@ def _ensure_schema(sync_conn):
                     "ALTER TABLE rooms ADD COLUMN whiteboard_enabled BOOLEAN NOT NULL DEFAULT 0"
                 )
             )
+        if "whiteboard_state" not in room_columns:
+            sync_conn.execute(
+                text("ALTER TABLE rooms ADD COLUMN whiteboard_state TEXT NOT NULL DEFAULT '{}'")
+            )
 
     if "room_users" in tables:
         room_user_columns = {column["name"] for column in inspector.get_columns("room_users")}

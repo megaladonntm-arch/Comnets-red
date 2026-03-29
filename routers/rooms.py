@@ -51,9 +51,15 @@ async def create_room_endpoint(
     db: AsyncSession = Depends(get_db),
     user: User = Depends(get_current_user),
 ):
-    room = await create_room(
-        db, payload.name, payload.is_private, user.id, payload.whiteboard_enabled
-    )
+    try:
+        room = await create_room(
+            db, payload.name, payload.is_private, user.id, payload.whiteboard_enabled
+        )
+    except RuntimeError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="Room creation is temporarily unavailable",
+        ) from exc
     # auto-join owner
     await join_room(db, room.id, user.id)
     return await serialize_room(db, room)

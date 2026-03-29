@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import TopBar from "../components/TopBar.jsx";
 import RoomList from "../components/RoomList.jsx";
 import CreateRoomModal from "../components/CreateRoomModal.jsx";
+import { normalizeRoomCode, validateRoomCode } from "../utils/validation.js";
 import "../styles.css";
 
 export default function Home({
@@ -21,6 +22,8 @@ export default function Home({
 }) {
   const [showCreate, setShowCreate] = useState(false);
   const [joinCode, setJoinCode] = useState("");
+  const [joinError, setJoinError] = useState("");
+  const [joinLoading, setJoinLoading] = useState(false);
 
   useEffect(() => {
     onRefresh();
@@ -30,8 +33,22 @@ export default function Home({
 
   const handleJoinCode = async (event) => {
     event.preventDefault();
-    if (!joinCode.trim()) return;
-    await onJoinByCode(joinCode.trim());
+    const normalizedCode = normalizeRoomCode(joinCode);
+    const codeError = validateRoomCode(normalizedCode);
+    if (codeError) {
+      setJoinError(codeError);
+      return;
+    }
+
+    setJoinLoading(true);
+    setJoinError("");
+    try {
+      await onJoinByCode(normalizedCode);
+    } catch (error) {
+      setJoinError(error.message || "Unable to join room by code.");
+    } finally {
+      setJoinLoading(false);
+    }
   };
 
   return (
@@ -56,7 +73,22 @@ export default function Home({
             </button>
           </header>
 
-          <RoomList rooms={rooms} onJoin={onJoinRoom} disabled={!authed} />
+          <RoomList
+            rooms={rooms}
+            onJoin={async (roomId) => {
+              setJoinLoading(true);
+              setJoinError("");
+              try {
+                await onJoinRoom(roomId);
+              } catch (error) {
+                setJoinError(error.message || "Unable to join room.");
+              } finally {
+                setJoinLoading(false);
+              }
+            }}
+            disabled={!authed || joinLoading}
+          />
+          {joinError && authed && <p className="form-error">{joinError}</p>}
           <div className="room-footer">{roomCount} rooms online</div>
         </section>
 
@@ -82,19 +114,39 @@ export default function Home({
               <p className="eyebrow">Join</p>
               <h3>Enter a room</h3>
               <div className="join-actions">
-                <button className="primary" onClick={onJoinRandom}>
+                <button
+                  className="primary"
+                  onClick={async () => {
+                    setJoinLoading(true);
+                    setJoinError("");
+                    try {
+                      await onJoinRandom();
+                    } catch (error) {
+                      setJoinError(error.message || "Unable to join a random room.");
+                    } finally {
+                      setJoinLoading(false);
+                    }
+                  }}
+                  disabled={joinLoading}
+                >
                   Random room
                 </button>
                 <form onSubmit={handleJoinCode} className="code-form">
                   <input
                     placeholder="Enter code"
                     value={joinCode}
-                    onChange={(e) => setJoinCode(e.target.value)}
+                    onChange={(e) => {
+                      setJoinCode(normalizeRoomCode(e.target.value));
+                      if (joinError) setJoinError("");
+                    }}
+                    inputMode="numeric"
+                    maxLength={5}
                   />
-                  <button className="secondary" type="submit">
-                    Join by code
+                  <button className="secondary" type="submit" disabled={joinLoading}>
+                    {joinLoading ? "Joining..." : "Join by code"}
                   </button>
                 </form>
+                {joinError && <p className="form-error">{joinError}</p>}
               </div>
             </div>
           )}

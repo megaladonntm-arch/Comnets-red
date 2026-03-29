@@ -14,6 +14,17 @@ def get_env(name: str, default: str | None = None) -> str | None:
     return value if value else default
 
 
+def get_csv_env(name: str) -> list[str]:
+    raw = os.getenv(name, "")
+    return [item.strip() for item in raw.split(",") if item.strip()]
+
+
+def trim_trailing_slash(value: str | None) -> str | None:
+    if value is None:
+        return None
+    return value.rstrip("/")
+
+
 def normalize_database_url(raw_url: str | None) -> str:
     if not raw_url:
         return "sqlite+aiosqlite:///./app.db"
@@ -46,3 +57,16 @@ def build_database_url() -> str:
 
 DATABASE_URL = build_database_url()
 SECRET_KEY = get_env("SECRET_KEY", "change-me")
+BACKEND_URL = trim_trailing_slash(get_env("BACKEND_URL", "http://localhost:8000"))
+FRONTEND_URL = trim_trailing_slash(get_env("FRONTEND_URL", "http://localhost:5173"))
+
+CORS_ORIGINS = (
+    get_csv_env("CORS_ORIGINS")
+    or ([FRONTEND_URL] if FRONTEND_URL else [])
+    or [
+        "http://localhost:5173",
+        "http://127.0.0.1:5173",
+        "http://localhost:4173",
+        "http://127.0.0.1:4173",
+    ]
+)

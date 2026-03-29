@@ -1,4 +1,4 @@
-from sqlalchemy import Boolean, Column, ForeignKey, Integer, String
+from sqlalchemy import Boolean, Column, ForeignKey, Integer, String, Text
 from sqlalchemy.orm import relationship
 
 from database import Base
@@ -24,6 +24,7 @@ class Room(Base):
     code = Column(String(5), nullable=True)
     owner_id = Column(Integer, ForeignKey("users.id"), nullable=False)
     whiteboard_enabled = Column(Boolean, default=False, nullable=False)
+    whiteboard_state = Column(Text, default="{}", nullable=False)
 
     owner = relationship("User", back_populates="rooms")
     members = relationship("RoomUser", back_populates="room")

@@ -54,8 +54,12 @@ export default function App() {
   };
 
   const refreshRooms = useCallback(async () => {
-    const list = await api.getRooms();
-    setRooms(list || []);
+    try {
+      const list = await api.getRooms();
+      setRooms(list || []);
+    } catch {
+      setRooms([]);
+    }
   }, []);
 
   const handleLogin = async (payload) => {
@@ -70,6 +74,7 @@ export default function App() {
 
   const handleCreateRoom = async (payload) => {
     const room = await api.createRoom(payload);
+    void refreshRooms();
     return room;
   };
 

@@ -8,7 +8,7 @@ export default function RoomCard({ room, onJoin, disabled }) {
           {room.active_users}/4 online · {room.whiteboard_enabled ? "board on" : "board off"}
         </p>
       </div>
-      <button className="secondary" onClick={onJoin} disabled={disabled}>
+      <button className="secondary" onClick={onJoin} disabled={disabled} type="button">
         Join
       </button>
     </div>

@@ -15,6 +15,8 @@ const DEFAULT_MEDIA_STATE = {
   videoEnabled: true
 };
 
+const RECONNECT_DELAYS = [1000, 2000, 4000, 8000];
+
 export default function Room({ room, username, token, isOwner, onLeave }) {
   const [participants, setParticipants] = useState({});
   const [selfId, setSelfId] = useState(null);
@@ -26,7 +28,7 @@ export default function Room({ room, username, token, isOwner, onLeave }) {
   const [socketState, setSocketState] = useState("connecting");
   const [roomError, setRoomError] = useState("");
   const [whiteboardEnabled, setWhiteboardEnabled] = useState(Boolean(room.whiteboard_enabled));
-  const [whiteboardStrokes, setWhiteboardStrokes] = useState([]);
+  const [whiteboardElements, setWhiteboardElements] = useState([]);
   const socketRef = useRef(null);
   const peersRef = useRef(new Map());
   const localStreamRef = useRef(null);
@@ -36,11 +38,15 @@ export default function Room({ room, username, token, isOwner, onLeave }) {
   const audioCtxRef = useRef(null);
   const analyserRef = useRef(null);
   const rafRef = useRef(null);
+  const reconnectTimerRef = useRef(null);
+  const reconnectAttemptRef = useRef(0);
+  const shuttingDownRef = useRef(false);
 
   const dispatchWS = (payload) => {
     const socket = socketRef.current;
-    if (!socket || socket.readyState !== WebSocket.OPEN) return;
+    if (!socket || socket.readyState !== WebSocket.OPEN) return false;
     socket.send(JSON.stringify(payload));
+    return true;
   };
 
   const stopSpeakingMonitor = () => {
@@ -49,7 +55,7 @@ export default function Room({ room, username, token, isOwner, onLeave }) {
       rafRef.current = null;
     }
     if (audioCtxRef.current) {
-      audioCtxRef.current.close();
+      audioCtxRef.current.close().catch(() => {});
       audioCtxRef.current = null;
     }
     analyserRef.current = null;
@@ -65,11 +71,17 @@ export default function Room({ room, username, token, isOwner, onLeave }) {
 
     if (audioCtxRef.current) return;
 
-    const audioCtx = new AudioContext();
+    const AudioCtx = window.AudioContext || window.webkitAudioContext;
+    if (!AudioCtx) return;
+
+    const audioCtx = new AudioCtx();
     const analyser = audioCtx.createAnalyser();
     analyser.fftSize = 512;
     const source = audioCtx.createMediaStreamSource(stream);
     source.connect(analyser);
+    if (audioCtx.state === "suspended") {
+      void audioCtx.resume().catch(() => {});
+    }
 
     audioCtxRef.current = audioCtx;
     analyserRef.current = analyser;
@@ -90,9 +102,17 @@ export default function Room({ room, username, token, isOwner, onLeave }) {
     rafRef.current = requestAnimationFrame(tick);
   };
 
+  const clearPeerRestartTimer = (peer) => {
+    if (peer?.restartTimer) {
+      clearTimeout(peer.restartTimer);
+      peer.restartTimer = null;
+    }
+  };
+
   const closePeer = (peerId) => {
     const peer = peersRef.current.get(peerId);
     if (peer) {
+      clearPeerRestartTimer(peer);
       peer.pc.close();
       peersRef.current.delete(peerId);
     }
@@ -101,6 +121,15 @@ export default function Room({ room, username, token, isOwner, onLeave }) {
       delete next[peerId];
       return next;
     });
+  };
+
+  const closeAllPeers = () => {
+    peersRef.current.forEach((peer, peerId) => {
+      clearPeerRestartTimer(peer);
+      peer.pc.close();
+      peersRef.current.delete(peerId);
+    });
+    setRemoteStreams({});
   };
 
   const syncTracksWithState = (nextState) => {
@@ -139,7 +168,7 @@ export default function Room({ room, username, token, isOwner, onLeave }) {
         .getSenders()
         .find((item) => item.track && item.track.kind === track.kind);
       if (sender) {
-        sender.replaceTrack(track);
+        void sender.replaceTrack(track);
         return;
       }
       peer.pc.addTrack(track, stream);
@@ -155,62 +184,31 @@ export default function Room({ room, username, token, isOwner, onLeave }) {
     }
   };
 
-  const ensurePeer = (peerId) => {
-    if (!peerId || peerId === selfIdRef.current) return null;
-    if (peersRef.current.has(peerId)) return peersRef.current.get(peerId);
+  const schedulePeerRestart = (peerId, delayMs = 1500) => {
+    const peer = peersRef.current.get(peerId);
+    if (!peer) return;
+    clearPeerRestartTimer(peer);
+    peer.restartTimer = setTimeout(async () => {
+      const currentPeer = peersRef.current.get(peerId);
+      if (!currentPeer || socketRef.current?.readyState !== WebSocket.OPEN) return;
+      if (currentPeer.pc.connectionState === "connected") return;
 
-    const pc = new RTCPeerConnection({ iceServers: ICE_SERVERS });
-    const peer = {
-      pc,
-      polite: (selfIdRef.current || 0) > peerId,
-      makingOffer: false,
-      ignoreOffer: false,
-      isSettingRemoteAnswerPending: false,
-      pendingCandidates: []
-    };
-
-    attachLocalTracksToPeer(peer);
-
-    pc.ontrack = (event) => {
-      const [stream] = event.streams;
-      if (!stream) return;
-      setRemoteStreams((prev) => ({ ...prev, [peerId]: stream }));
-    };
-
-    pc.onicecandidate = (event) => {
-      if (!event.candidate) return;
-      dispatchWS({
-        type: "ice",
-        target_id: peerId,
-        payload: event.candidate
-      });
-    };
-
-    pc.onnegotiationneeded = async () => {
       try {
-        peer.makingOffer = true;
-        await pc.setLocalDescription();
-        if (!pc.localDescription) return;
+        if (typeof currentPeer.pc.restartIce === "function") {
+          currentPeer.pc.restartIce();
+        }
+        if (currentPeer.pc.signalingState !== "stable") return;
+        const offer = await currentPeer.pc.createOffer({ iceRestart: true });
+        await currentPeer.pc.setLocalDescription(offer);
         dispatchWS({
           type: "offer",
           target_id: peerId,
-          payload: pc.localDescription
+          payload: currentPeer.pc.localDescription
         });
       } catch {
-        // ignore unstable renegotiation noise
-      } finally {
-        peer.makingOffer = false;
+        // ignore restart failures during unstable reconnects
       }
-    };
-
-    pc.onconnectionstatechange = () => {
-      if (["failed", "disconnected", "closed"].includes(pc.connectionState)) {
-        closePeer(peerId);
-      }
-    };
-
-    peersRef.current.set(peerId, peer);
-    return peer;
+    }, delayMs);
   };
 
   const requestMissingTrack = async (kind) => {
@@ -272,7 +270,9 @@ export default function Room({ room, username, token, isOwner, onLeave }) {
       const emptyStream = new MediaStream();
       localStreamRef.current = emptyStream;
       setLocalStream(emptyStream);
-      setMediaError("Не удалось открыть камеру и микрофон. Проверь доступ браузера к устройствам.");
+      setMediaError(
+        "Не удалось получить доступ к камере и микрофону. Проверь разрешения браузера."
+      );
       publishMediaState({ audioEnabled: false, videoEnabled: false });
       return emptyStream;
     }
@@ -290,10 +290,92 @@ export default function Room({ room, username, token, isOwner, onLeave }) {
 
     if (!stream.getAudioTracks().length || !stream.getVideoTracks().length) {
       setMediaError("Часть устройств недоступна. Комната продолжит работать с тем, что доступно.");
+    } else {
+      setMediaError("");
     }
 
     publishMediaState(nextState);
     return stream;
+  };
+
+  const ensurePeer = (peerId) => {
+    if (!peerId || peerId === selfIdRef.current) return null;
+    if (peersRef.current.has(peerId)) return peersRef.current.get(peerId);
+
+    const pc = new RTCPeerConnection({ iceServers: ICE_SERVERS, iceCandidatePoolSize: 10 });
+    const peer = {
+      pc,
+      polite: (selfIdRef.current || 0) > peerId,
+      makingOffer: false,
+      ignoreOffer: false,
+      isSettingRemoteAnswerPending: false,
+      pendingCandidates: [],
+      restartTimer: null
+    };
+
+    attachLocalTracksToPeer(peer);
+
+    pc.ontrack = (event) => {
+      const [stream] = event.streams;
+      if (!stream) return;
+      setRemoteStreams((prev) => ({ ...prev, [peerId]: stream }));
+    };
+
+    pc.onicecandidate = (event) => {
+      if (!event.candidate) return;
+      dispatchWS({
+        type: "ice",
+        target_id: peerId,
+        payload: event.candidate
+      });
+    };
+
+    pc.onnegotiationneeded = async () => {
+      if (socketRef.current?.readyState !== WebSocket.OPEN) return;
+      try {
+        peer.makingOffer = true;
+        await initLocalMedia();
+        const offer = await pc.createOffer();
+        await pc.setLocalDescription(offer);
+        if (!pc.localDescription) return;
+        dispatchWS({
+          type: "offer",
+          target_id: peerId,
+          payload: pc.localDescription
+        });
+      } catch {
+        // ignore negotiation noise during reconnect churn
+      } finally {
+        peer.makingOffer = false;
+      }
+    };
+
+    pc.onconnectionstatechange = () => {
+      if (pc.connectionState === "connected") {
+        clearPeerRestartTimer(peer);
+        return;
+      }
+      if (pc.connectionState === "failed") {
+        schedulePeerRestart(peerId, 200);
+        return;
+      }
+      if (pc.connectionState === "closed") {
+        closePeer(peerId);
+      }
+    };
+
+    pc.oniceconnectionstatechange = () => {
+      if (pc.iceConnectionState === "connected" || pc.iceConnectionState === "completed") {
+        clearPeerRestartTimer(peer);
+      } else if (pc.iceConnectionState === "disconnected") {
+        schedulePeerRestart(peerId, 2500);
+      } else if (pc.iceConnectionState === "failed") {
+        schedulePeerRestart(peerId, 300);
+      }
+    };
+
+    peersRef.current.set(peerId, peer);
+    return peer;
   };
 
   const setParticipant = (participant) => {
@@ -322,16 +404,19 @@ export default function Room({ room, username, token, isOwner, onLeave }) {
 
   const applyWhiteboardPayload = (payload) => {
     if (!payload?.mode) return;
-    setWhiteboardStrokes((prev) => {
+    setWhiteboardElements((prev) => {
       if (payload.mode === "start" && payload.stroke) {
-        return [...prev.filter((stroke) => stroke.id !== payload.stroke.id), payload.stroke];
+        return [...prev.filter((item) => item.id !== payload.stroke.id), payload.stroke];
       }
       if (payload.mode === "point" && payload.stroke_id && payload.point) {
-        return prev.map((stroke) =>
-          stroke.id === payload.stroke_id
-            ? { ...stroke, points: [...stroke.points, payload.point] }
-            : stroke
+        return prev.map((item) =>
+          item.kind === "stroke" && item.id === payload.stroke_id
+            ? { ...item, points: [...(item.points || []), payload.point] }
+            : item
         );
+      }
+      if (payload.mode === "text" && payload.text) {
+        return [...prev.filter((item) => item.id !== payload.text.id), payload.text];
       }
       return prev;
     });
@@ -377,7 +462,8 @@ export default function Room({ room, username, token, isOwner, onLeave }) {
 
       if (description.type === "offer") {
         await initLocalMedia();
-        await peer.pc.setLocalDescription();
+        const answer = await peer.pc.createAnswer();
+        await peer.pc.setLocalDescription(answer);
         if (!peer.pc.localDescription) return;
         dispatchWS({
           type: "answer",
@@ -424,6 +510,11 @@ export default function Room({ room, username, token, isOwner, onLeave }) {
 
   const handleSocketEvent = async (event) => {
     if (event.type === "welcome") {
+      reconnectAttemptRef.current = 0;
+      if (reconnectTimerRef.current) {
+        clearTimeout(reconnectTimerRef.current);
+        reconnectTimerRef.current = null;
+      }
       setSocketState("connected");
       setRoomError("");
       setSelfId(event.self_id);
@@ -446,7 +537,7 @@ export default function Room({ room, username, token, isOwner, onLeave }) {
       });
       setParticipants(existingParticipants);
       setWhiteboardEnabled(event.whiteboard?.enabled === true);
-      setWhiteboardStrokes(event.whiteboard?.strokes || []);
+      setWhiteboardElements(event.whiteboard?.elements || event.whiteboard?.strokes || []);
 
       if (localStreamRef.current) {
         publishMediaState({
@@ -506,12 +597,19 @@ export default function Room({ room, username, token, isOwner, onLeave }) {
     }
 
     if (event.type === "whiteboard_clear") {
-      setWhiteboardStrokes([]);
+      setWhiteboardElements([]);
       return;
     }
 
     if (event.type === "whiteboard_draw") {
       applyWhiteboardPayload(event.payload);
+      return;
+    }
+
+    if (event.type === "error") {
+      if (event.detail === "whiteboard_disabled") {
+        setRoomError("Доска была отключена владельцем комнаты.");
+      }
       return;
     }
 
@@ -526,47 +624,82 @@ export default function Room({ room, username, token, isOwner, onLeave }) {
     setRoomError("");
     setSocketState("connecting");
     setWhiteboardEnabled(Boolean(room.whiteboard_enabled));
-    setWhiteboardStrokes([]);
+    setWhiteboardElements([]);
     setMediaError("");
+    setSelfId(null);
     selfIdRef.current = null;
     mediaStateRef.current = DEFAULT_MEDIA_STATE;
     desiredMediaStateRef.current = DEFAULT_MEDIA_STATE;
+    reconnectAttemptRef.current = 0;
+    shuttingDownRef.current = false;
 
     if (!token) return undefined;
 
-    let socket;
-    socket = connectRoomSocket(room.id, token, (event) => {
-      Promise.resolve(handleSocketEvent(event)).catch(() => {
-        setRoomError("Ошибка обработки комнаты. Обнови страницу или зайди заново.");
+    const connectSocket = () => {
+      if (shuttingDownRef.current) return;
+
+      closeAllPeers();
+      const socket = connectRoomSocket(room.id, token, (event) => {
+        Promise.resolve(handleSocketEvent(event)).catch(() => {
+          setRoomError("Ошибка обработки комнаты. Обнови страницу или войди заново.");
+        });
       });
-    });
 
-    socket.onopen = () => {
-      setSocketState("connecting");
+      socket.onopen = () => {
+        setSocketState(reconnectAttemptRef.current > 0 ? "reconnecting" : "connecting");
+      };
+
+      socket.onclose = (event) => {
+        socketRef.current = null;
+        closeAllPeers();
+
+        if (shuttingDownRef.current) return;
+
+        const terminalErrors = {
+          4003: "Доступ в комнату закрыт или тебя исключили.",
+          4004: "Комната не найдена.",
+          4005: "Комната уже заполнена."
+        };
+
+        if (terminalErrors[event.code]) {
+          setSocketState("closed");
+          setRoomError(terminalErrors[event.code]);
+          return;
+        }
+
+        const delay =
+          RECONNECT_DELAYS[Math.min(reconnectAttemptRef.current, RECONNECT_DELAYS.length - 1)];
+        reconnectAttemptRef.current += 1;
+        setSocketState("reconnecting");
+        setRoomError("Соединение прервалось. Пытаюсь переподключиться...");
+
+        reconnectTimerRef.current = setTimeout(() => {
+          connectSocket();
+        }, delay);
+      };
+
+      socketRef.current = socket;
     };
 
-    socket.onclose = (event) => {
-      setSocketState("closed");
-      if (event.code === 4003) {
-        setRoomError("Доступ в комнату закрыт или тебя исключили.");
-      } else if (event.code === 4005) {
-        setRoomError("Комната уже заполнена.");
-      } else {
-        setRoomError((prev) => prev || "Соединение с комнатой прервалось.");
-      }
-    };
-
-    socketRef.current = socket;
     void initLocalMedia();
+    connectSocket();
 
     return () => {
-      socket.close();
-      peersRef.current.forEach((peer) => peer.pc.close());
-      peersRef.current.clear();
+      shuttingDownRef.current = true;
+      if (reconnectTimerRef.current) {
+        clearTimeout(reconnectTimerRef.current);
+        reconnectTimerRef.current = null;
+      }
+      if (socketRef.current) {
+        socketRef.current.close();
+        socketRef.current = null;
+      }
+      closeAllPeers();
       if (localStreamRef.current) {
         localStreamRef.current.getTracks().forEach((track) => track.stop());
         localStreamRef.current = null;
       }
+      setLocalStream(null);
       stopSpeakingMonitor();
     };
   }, [room.id, room.whiteboard_enabled, token]);
@@ -643,23 +776,25 @@ export default function Room({ room, username, token, isOwner, onLeave }) {
             <p className="eyebrow">Room</p>
             <h2>{room.name}</h2>
             <p className="muted">
-              {room.is_private ? "Private room" : "Public room"} · Owner: @{room.owner_username}
+              {room.is_private ? "Private room" : "Public room"} | Owner: @{room.owner_username}
             </p>
           </div>
           <div className="room-actions">
             <button
               className={mediaState.audioEnabled ? "secondary" : "primary"}
               onClick={() => handleMediaToggle("audio")}
+              type="button"
             >
               {mediaState.audioEnabled ? "Mute mic" : "Unmute mic"}
             </button>
             <button
               className={mediaState.videoEnabled ? "secondary" : "primary"}
               onClick={() => handleMediaToggle("video")}
+              type="button"
             >
               {mediaState.videoEnabled ? "Stop camera" : "Start camera"}
             </button>
-            <button className="danger" onClick={onLeave}>
+            <button className="danger" onClick={onLeave} type="button">
               Leave
             </button>
           </div>
@@ -675,9 +810,15 @@ export default function Room({ room, username, token, isOwner, onLeave }) {
         <section className="room-overview">
           <div className="status-card card">
             <p className="eyebrow">Connection</p>
-            <h3>{socketState === "connected" ? "Live" : "Reconnecting"}</h3>
+            <h3>
+              {socketState === "connected"
+                ? "Live"
+                : socketState === "closed"
+                  ? "Offline"
+                  : "Reconnecting"}
+            </h3>
             <p className="muted">
-              WebRTC sync, room events and media state are now handled in real time.
+              WebRTC calls, room events and recovery now stay synchronized in real time.
             </p>
           </div>
           <div className="status-card card">
@@ -713,7 +854,7 @@ export default function Room({ room, username, token, isOwner, onLeave }) {
           enabled={whiteboardEnabled}
           canDraw={socketState === "connected" && whiteboardEnabled}
           isOwner={isOwner}
-          strokes={whiteboardStrokes}
+          elements={whiteboardElements}
           clientId={selfId}
           onToggle={handleBoardToggle}
           onClear={handleBoardClear}
@@ -767,5 +908,9 @@ function bindMediaNode(node, stream) {
   if (!node || !stream) return;
   if (node.srcObject !== stream) {
     node.srcObject = stream;
+  }
+  const playPromise = node.play?.();
+  if (playPromise?.catch) {
+    playPromise.catch(() => {});
   }
 }

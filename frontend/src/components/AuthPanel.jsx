@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { validatePassword, validateUsername } from "../utils/validation.js";
 
 export default function AuthPanel({ onLogin, onRegister, mode, onModeChange }) {
   const [internalMode, setInternalMode] = useState("login");
@@ -6,17 +7,28 @@ export default function AuthPanel({ onLogin, onRegister, mode, onModeChange }) {
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
+  const [error, setError] = useState("");
 
   const handleSubmit = async (event) => {
     event.preventDefault();
-    if (!username || !password) return;
+    const trimmedUsername = username.trim();
+    const usernameError = validateUsername(trimmedUsername);
+    const passwordError = validatePassword(password);
+    if (usernameError || passwordError) {
+      setError(usernameError || passwordError);
+      return;
+    }
+
     setLoading(true);
+    setError("");
     try {
       if (activeMode === "login") {
-        await onLogin({ username, password });
+        await onLogin({ username: trimmedUsername, password });
       } else {
-        await onRegister({ username, password });
+        await onRegister({ username: trimmedUsername, password });
       }
+    } catch (submitError) {
+      setError(submitError.message || "Request failed.");
     } finally {
       setLoading(false);
     }
@@ -27,12 +39,14 @@ export default function AuthPanel({ onLogin, onRegister, mode, onModeChange }) {
       <div className="tabs">
         <button
           className={activeMode === "login" ? "tab active" : "tab"}
+          type="button"
           onClick={() => (onModeChange ? onModeChange("login") : setInternalMode("login"))}
         >
           Login
         </button>
         <button
           className={activeMode === "register" ? "tab active" : "tab"}
+          type="button"
           onClick={() =>
             onModeChange ? onModeChange("register") : setInternalMode("register")
           }
@@ -46,8 +60,13 @@ export default function AuthPanel({ onLogin, onRegister, mode, onModeChange }) {
           Username
           <input
             value={username}
-            onChange={(e) => setUsername(e.target.value)}
+            onChange={(e) => {
+              setUsername(e.target.value);
+              if (error) setError("");
+            }}
             placeholder="spacepilot"
+            autoComplete="username"
+            maxLength={24}
           />
         </label>
         <label>
@@ -55,10 +74,17 @@ export default function AuthPanel({ onLogin, onRegister, mode, onModeChange }) {
           <input
             type="password"
             value={password}
-            onChange={(e) => setPassword(e.target.value)}
-            placeholder="????????"
+            onChange={(e) => {
+              setPassword(e.target.value);
+              if (error) setError("");
+            }}
+            placeholder="At least 8 characters"
+            autoComplete={activeMode === "login" ? "current-password" : "new-password"}
+            minLength={8}
+            maxLength={128}
           />
         </label>
+        {error && <p className="form-error">{error}</p>}
         <button className="primary" type="submit" disabled={loading}>
           {loading ? "Loading..." : activeMode === "login" ? "Login" : "Create account"}
         </button>

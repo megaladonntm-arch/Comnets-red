@@ -1,6 +1,33 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 
 const COLORS = ["#f6c344", "#ff7a59", "#7dd3fc", "#8ce99a", "#f472b6"];
+const TEXT_LIMIT = 160;
+
+function drawBoardBackground(ctx, width, height) {
+  const gradient = ctx.createLinearGradient(0, 0, 0, height);
+  gradient.addColorStop(0, "#0c1018");
+  gradient.addColorStop(1, "#151b24");
+
+  ctx.fillStyle = gradient;
+  ctx.fillRect(0, 0, width, height);
+
+  ctx.save();
+  ctx.strokeStyle = "rgba(255, 255, 255, 0.05)";
+  ctx.lineWidth = 1;
+  for (let x = 0; x < width; x += 28) {
+    ctx.beginPath();
+    ctx.moveTo(x, 0);
+    ctx.lineTo(x, height);
+    ctx.stroke();
+  }
+  for (let y = 0; y < height; y += 28) {
+    ctx.beginPath();
+    ctx.moveTo(0, y);
+    ctx.lineTo(width, y);
+    ctx.stroke();
+  }
+  ctx.restore();
+}
 
 function drawStroke(ctx, stroke, width, height) {
   const points = stroke.points || [];
@@ -9,7 +36,7 @@ function drawStroke(ctx, stroke, width, height) {
   ctx.save();
   ctx.lineCap = "round";
   ctx.lineJoin = "round";
-  ctx.strokeStyle = stroke.color || "#f6c344";
+  ctx.strokeStyle = stroke.color || COLORS[0];
   ctx.lineWidth = stroke.width || 3;
   ctx.beginPath();
   ctx.moveTo(points[0].x * width, points[0].y * height);
@@ -23,11 +50,43 @@ function drawStroke(ctx, stroke, width, height) {
   ctx.restore();
 }
 
+function drawTextItem(ctx, item, width, height) {
+  const point = item.point;
+  if (!point || !item.text) return;
+
+  const fontSize = item.size || 24;
+  const lines = item.text.split("\n");
+  ctx.save();
+  ctx.fillStyle = item.color || COLORS[0];
+  ctx.font = `${fontSize}px Inter, system-ui, sans-serif`;
+  ctx.textBaseline = "top";
+  lines.forEach((line, index) => {
+    ctx.fillText(line, point.x * width, point.y * height + index * (fontSize + 4));
+  });
+  ctx.restore();
+}
+
+function renderBoard(ctx, elements, width, height, withBackground = false) {
+  if (withBackground) {
+    drawBoardBackground(ctx, width, height);
+  } else {
+    ctx.clearRect(0, 0, width, height);
+  }
+
+  elements.forEach((element) => {
+    if (element.kind === "text") {
+      drawTextItem(ctx, element, width, height);
+      return;
+    }
+    drawStroke(ctx, element, width, height);
+  });
+}
+
 export default function WhiteboardCanvas({
   enabled,
   canDraw,
   isOwner,
-  strokes,
+  elements,
   clientId,
   onToggle,
   onClear,
@@ -39,6 +98,9 @@ export default function WhiteboardCanvas({
   const [brushColor, setBrushColor] = useState(COLORS[0]);
   const [brushSize, setBrushSize] = useState(3);
   const [canvasSize, setCanvasSize] = useState({ width: 0, height: 0 });
+  const [tool, setTool] = useState("draw");
+  const [textValue, setTextValue] = useState("");
+  const [boardError, setBoardError] = useState("");
 
   useEffect(() => {
     if (!wrapperRef.current) return undefined;
@@ -68,16 +130,15 @@ export default function WhiteboardCanvas({
 
     const ctx = canvas.getContext("2d");
     ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
-    ctx.clearRect(0, 0, canvasSize.width, canvasSize.height);
-
-    strokes.forEach((stroke) => drawStroke(ctx, stroke, canvasSize.width, canvasSize.height));
-  }, [canvasSize.height, canvasSize.width, strokes]);
+    renderBoard(ctx, elements, canvasSize.width, canvasSize.height, false);
+  }, [canvasSize.height, canvasSize.width, elements]);
 
   const boardLabel = useMemo(() => {
     if (!enabled) return "Board disabled";
+    if (tool === "text") return "Click any point on the board to place your text";
     if (canDraw) return "Everyone in the room can draw live";
     return "Live board is active";
-  }, [canDraw, enabled]);
+  }, [canDraw, enabled, tool]);
 
   const resolvePoint = (event) => {
     const rect = canvasRef.current?.getBoundingClientRect();
@@ -99,6 +160,28 @@ export default function WhiteboardCanvas({
 
     const point = resolvePoint(event);
     if (!point) return;
+    setBoardError("");
+
+    if (tool === "text") {
+      const content = textValue.trim();
+      if (!content) {
+        setBoardError("Enter text before placing it on the board.");
+        return;
+      }
+
+      onDrawEvent({
+        mode: "text",
+        text: {
+          id: `${clientId || "user"}-text-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+          author_id: clientId,
+          color: brushColor,
+          size: Math.max(16, brushSize * 6),
+          point,
+          text: content
+        }
+      });
+      return;
+    }
 
     const stroke = {
       id: `${clientId || "user"}-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
@@ -119,7 +202,7 @@ export default function WhiteboardCanvas({
   };
 
   const handlePointerMove = (event) => {
-    if (!drawingRef.current.active || !enabled || !canDraw) return;
+    if (tool !== "draw" || !drawingRef.current.active || !enabled || !canDraw) return;
     const point = resolvePoint(event);
     if (!point) return;
 
@@ -137,6 +220,21 @@ export default function WhiteboardCanvas({
     });
   };
 
+  const handleSave = () => {
+    if (!elements.length || !canvasSize.width || !canvasSize.height) return;
+
+    const exportCanvas = document.createElement("canvas");
+    exportCanvas.width = canvasSize.width;
+    exportCanvas.height = canvasSize.height;
+    const ctx = exportCanvas.getContext("2d");
+    renderBoard(ctx, elements, canvasSize.width, canvasSize.height, true);
+
+    const link = document.createElement("a");
+    link.href = exportCanvas.toDataURL("image/png");
+    link.download = `whiteboard-${new Date().toISOString().slice(0, 19).replace(/[:T]/g, "-")}.png`;
+    link.click();
+  };
+
   return (
     <section className="whiteboard-panel card">
       <div className="whiteboard-header">
@@ -146,13 +244,18 @@ export default function WhiteboardCanvas({
           <p className="muted">{boardLabel}</p>
         </div>
         <div className="whiteboard-actions">
+          {elements.length > 0 && (
+            <button className="secondary" onClick={handleSave} type="button">
+              Save PNG
+            </button>
+          )}
           {isOwner && (
-            <button className={enabled ? "secondary" : "primary"} onClick={onToggle}>
+            <button className={enabled ? "secondary" : "primary"} onClick={onToggle} type="button">
               {enabled ? "Disable board" : "Enable board"}
             </button>
           )}
           {enabled && isOwner && (
-            <button className="ghost" onClick={onClear}>
+            <button className="ghost" onClick={onClear} type="button">
               Clear
             </button>
           )}
@@ -160,6 +263,25 @@ export default function WhiteboardCanvas({
       </div>
 
       <div className="board-toolbar">
+        <div className="tool-row">
+          <button
+            className={tool === "draw" ? "toggle active" : "toggle"}
+            onClick={() => setTool("draw")}
+            type="button"
+            disabled={!enabled}
+          >
+            Draw
+          </button>
+          <button
+            className={tool === "text" ? "toggle active" : "toggle"}
+            onClick={() => setTool("text")}
+            type="button"
+            disabled={!enabled}
+          >
+            Text
+          </button>
+        </div>
+
         <div className="color-row">
           {COLORS.map((color) => (
             <button
@@ -173,8 +295,9 @@ export default function WhiteboardCanvas({
             />
           ))}
         </div>
+
         <label className="board-size">
-          Brush
+          {tool === "text" ? "Text size" : "Brush"}
           <input
             type="range"
             min="2"
@@ -186,6 +309,25 @@ export default function WhiteboardCanvas({
           />
         </label>
       </div>
+
+      {tool === "text" && (
+        <label className="board-text-input">
+          Text content
+          <textarea
+            value={textValue}
+            onChange={(event) => {
+              setTextValue(event.target.value.slice(0, TEXT_LIMIT));
+              if (boardError) setBoardError("");
+            }}
+            disabled={!enabled}
+            rows={3}
+            placeholder="Type text, then click on the board"
+          />
+          <span className="muted">{textValue.length}/{TEXT_LIMIT}</span>
+        </label>
+      )}
+
+      {boardError && <p className="form-error">{boardError}</p>}
 
       <div className={`whiteboard-shell${enabled ? "" : " disabled"}`} ref={wrapperRef}>
         <canvas

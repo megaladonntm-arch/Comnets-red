@@ -1,4 +1,6 @@
 import json
+import math
+import re
 from copy import deepcopy
 from typing import Any, Dict, Optional, Set, Tuple
 
@@ -13,9 +15,216 @@ from services.rooms import MAX_ROOM_USERS, count_room_users, get_room_by_id, get
 
 router = APIRouter()
 
+MAX_WS_MESSAGE_SIZE = 128_000
+MAX_WHITEBOARD_ELEMENTS = 300
+MAX_STROKE_POINTS = 600
+MAX_TEXT_LENGTH = 160
+MAX_TEXT_LINES = 5
+DEFAULT_BRUSH_COLOR = "#f6c344"
+DEFAULT_TEXT_SIZE = 24
+DEFAULT_STROKE_WIDTH = 3
+ID_PATTERN = re.compile(r"^[A-Za-z0-9_.:-]{1,64}$")
+HEX_COLOR_PATTERN = re.compile(r"^#([0-9a-fA-F]{3}|[0-9a-fA-F]{6})$")
+
 
 def clone_jsonable(value: Any):
     return deepcopy(value)
+
+
+def clamp_number(value: float, lower: float, upper: float) -> float:
+    return max(lower, min(upper, value))
+
+
+def normalize_element_id(value: Any) -> Optional[str]:
+    if not isinstance(value, str):
+        return None
+    value = value.strip()
+    if not value or not ID_PATTERN.fullmatch(value):
+        return None
+    return value
+
+
+def normalize_color(value: Any, default: str = DEFAULT_BRUSH_COLOR) -> str:
+    if isinstance(value, str) and HEX_COLOR_PATTERN.fullmatch(value.strip()):
+        return value.strip().lower()
+    return default
+
+
+def normalize_point(value: Any) -> Optional[dict]:
+    if not isinstance(value, dict):
+        return None
+
+    x = value.get("x")
+    y = value.get("y")
+    if not isinstance(x, (int, float)) or not isinstance(y, (int, float)):
+        return None
+    if not math.isfinite(x) or not math.isfinite(y):
+        return None
+
+    return {
+        "x": round(clamp_number(float(x), 0.0, 1.0), 4),
+        "y": round(clamp_number(float(y), 0.0, 1.0), 4),
+    }
+
+
+def normalize_stroke_width(value: Any) -> int:
+    if not isinstance(value, (int, float)) or not math.isfinite(value):
+        return DEFAULT_STROKE_WIDTH
+    return int(round(clamp_number(float(value), 1.0, 18.0)))
+
+
+def normalize_font_size(value: Any) -> int:
+    if not isinstance(value, (int, float)) or not math.isfinite(value):
+        return DEFAULT_TEXT_SIZE
+    return int(round(clamp_number(float(value), 14.0, 72.0)))
+
+
+def normalize_text_value(value: Any) -> Optional[str]:
+    if not isinstance(value, str):
+        return None
+
+    text = value.replace("\r\n", "\n").replace("\r", "\n").strip()
+    if not text or len(text) > MAX_TEXT_LENGTH:
+        return None
+
+    lines = text.split("\n")
+    if len(lines) > MAX_TEXT_LINES:
+        return None
+
+    return "\n".join(line[:80] for line in lines)
+
+
+def normalize_stroke_payload(payload: Any, author_id: int) -> Optional[dict]:
+    if not isinstance(payload, dict):
+        return None
+
+    stroke_id = normalize_element_id(payload.get("id"))
+    points = payload.get("points")
+    if not stroke_id or not isinstance(points, list) or not points:
+        return None
+
+    normalized_points = []
+    for point in points[:MAX_STROKE_POINTS]:
+        normalized_point = normalize_point(point)
+        if not normalized_point:
+            return None
+        normalized_points.append(normalized_point)
+
+    return {
+        "kind": "stroke",
+        "id": stroke_id,
+        "author_id": author_id,
+        "color": normalize_color(payload.get("color")),
+        "width": normalize_stroke_width(payload.get("width")),
+        "points": normalized_points,
+    }
+
+
+def normalize_text_payload(payload: Any, author_id: int) -> Optional[dict]:
+    if not isinstance(payload, dict):
+        return None
+
+    text_id = normalize_element_id(payload.get("id"))
+    point = normalize_point(payload.get("point"))
+    text = normalize_text_value(payload.get("text"))
+    if not text_id or not point or not text:
+        return None
+
+    return {
+        "kind": "text",
+        "id": text_id,
+        "author_id": author_id,
+        "color": normalize_color(payload.get("color")),
+        "size": normalize_font_size(payload.get("size")),
+        "point": point,
+        "text": text,
+    }
+
+
+def sanitize_board_element(element: Any) -> Optional[dict]:
+    if not isinstance(element, dict):
+        return None
+
+    kind = element.get("kind")
+    author_id = element.get("author_id")
+    if not isinstance(author_id, int) or author_id <= 0:
+        author_id = 0
+
+    if kind == "text":
+        return normalize_text_payload(element, author_id)
+    return normalize_stroke_payload(element, author_id)
+
+
+def sanitize_whiteboard_state(raw_state: Any, fallback_enabled: bool = False) -> dict:
+    parsed_state = raw_state
+    if isinstance(raw_state, str):
+        try:
+            parsed_state = json.loads(raw_state)
+        except json.JSONDecodeError:
+            parsed_state = {}
+
+    if not isinstance(parsed_state, dict):
+        parsed_state = {}
+
+    raw_elements = parsed_state.get("elements")
+    if raw_elements is None:
+        raw_elements = parsed_state.get("strokes")
+    if not isinstance(raw_elements, list):
+        raw_elements = []
+
+    elements = []
+    for element in raw_elements:
+        normalized = sanitize_board_element(element)
+        if normalized:
+            elements.append(normalized)
+        if len(elements) >= MAX_WHITEBOARD_ELEMENTS:
+            break
+
+    return {
+        "enabled": bool(parsed_state.get("enabled", fallback_enabled)),
+        "elements": elements,
+    }
+
+
+def serialize_whiteboard_state(state: dict) -> str:
+    return json.dumps(state, ensure_ascii=False, separators=(",", ":"))
+
+
+def validate_media_state_payload(payload: dict) -> Optional[dict]:
+    audio_enabled = payload.get("audio_enabled")
+    video_enabled = payload.get("video_enabled")
+    if audio_enabled is not None and not isinstance(audio_enabled, bool):
+        return None
+    if video_enabled is not None and not isinstance(video_enabled, bool):
+        return None
+    return {"audio_enabled": audio_enabled, "video_enabled": video_enabled}
+
+
+def validate_whiteboard_event(payload: Any, author_id: int) -> Optional[dict]:
+    if not isinstance(payload, dict):
+        return None
+
+    mode = payload.get("mode")
+    if mode == "start":
+        stroke = normalize_stroke_payload(payload.get("stroke"), author_id)
+        return {"mode": "start", "stroke": stroke} if stroke else None
+
+    if mode == "point":
+        stroke_id = normalize_element_id(payload.get("stroke_id"))
+        point = normalize_point(payload.get("point"))
+        if not stroke_id or not point:
+            return None
+        return {"mode": "point", "stroke_id": stroke_id, "point": point}
+
+    if mode == "end":
+        stroke_id = normalize_element_id(payload.get("stroke_id"))
+        return {"mode": "end", "stroke_id": stroke_id} if stroke_id else None
+
+    if mode == "text":
+        text_item = normalize_text_payload(payload.get("text"), author_id)
+        return {"mode": "text", "text": text_item} if text_item else None
+
+    return None
 
 
 class ConnectionManager:
@@ -32,7 +241,7 @@ class ConnectionManager:
         user_id: int,
         websocket: WebSocket,
         participant: dict,
-        whiteboard_enabled: bool,
+        whiteboard_state: dict,
     ):
         existing_socket = self.user_sockets.get((room_id, user_id))
         if existing_socket and existing_socket is not websocket:
@@ -48,7 +257,7 @@ class ConnectionManager:
         self.user_sockets[(room_id, user_id)] = websocket
         self.socket_meta[websocket] = (room_id, user_id)
         self.room_participants.setdefault(room_id, {})[user_id] = participant
-        self.whiteboards.setdefault(room_id, {"enabled": whiteboard_enabled, "strokes": []})
+        self.whiteboards.setdefault(room_id, sanitize_whiteboard_state(whiteboard_state))
 
     def disconnect(self, room_id: int, user_id: int, websocket: WebSocket) -> bool:
         was_current_socket = self.user_sockets.get((room_id, user_id)) is websocket
@@ -128,53 +337,65 @@ class ConnectionManager:
 
     def get_whiteboard_state(self, room_id: int, default_enabled: bool = False) -> dict:
         whiteboard = self.whiteboards.setdefault(
-            room_id, {"enabled": default_enabled, "strokes": []}
+            room_id, {"enabled": default_enabled, "elements": []}
         )
         return clone_jsonable(whiteboard)
 
     def set_whiteboard_enabled(self, room_id: int, enabled: bool) -> dict:
-        whiteboard = self.whiteboards.setdefault(room_id, {"enabled": enabled, "strokes": []})
+        whiteboard = self.whiteboards.setdefault(room_id, {"enabled": enabled, "elements": []})
         whiteboard["enabled"] = enabled
         return clone_jsonable(whiteboard)
 
     def clear_whiteboard(self, room_id: int) -> dict:
-        whiteboard = self.whiteboards.setdefault(room_id, {"enabled": False, "strokes": []})
-        whiteboard["strokes"] = []
+        whiteboard = self.whiteboards.setdefault(room_id, {"enabled": False, "elements": []})
+        whiteboard["elements"] = []
         return clone_jsonable(whiteboard)
 
     def apply_whiteboard_draw(self, room_id: int, payload: dict) -> Optional[dict]:
-        whiteboard = self.whiteboards.setdefault(room_id, {"enabled": False, "strokes": []})
+        whiteboard = self.whiteboards.setdefault(room_id, {"enabled": False, "elements": []})
         mode = payload.get("mode")
-        if mode not in {"start", "point", "end"}:
+        if mode not in {"start", "point", "end", "text"}:
             return None
 
-        if mode == "start":
-            stroke = payload.get("stroke") or {}
-            stroke_id = stroke.get("id")
-            points = stroke.get("points") or []
-            if not stroke_id or not points:
-                return None
-            filtered_strokes = [
-                item for item in whiteboard["strokes"] if item.get("id") != stroke_id
-            ]
-            filtered_strokes.append(
-                {
-                    "id": stroke_id,
-                    "author_id": stroke.get("author_id"),
-                    "color": stroke.get("color", "#f6c344"),
-                    "width": stroke.get("width", 3),
-                    "points": points,
-                }
-            )
-            whiteboard["strokes"] = filtered_strokes
-            return {"mode": "start", "stroke": clone_jsonable(filtered_strokes[-1])}
+        elements = whiteboard["elements"]
 
-        stroke_id = payload.get("stroke_id")
+        if mode == "start":
+            stroke = payload.get("stroke")
+            if not stroke:
+                return None
+            filtered = [item for item in elements if item.get("id") != stroke["id"]]
+            if len(filtered) >= MAX_WHITEBOARD_ELEMENTS and not any(
+                item.get("id") == stroke["id"] for item in elements
+            ):
+                return None
+            filtered.append(clone_jsonable(stroke))
+            whiteboard["elements"] = filtered
+            return {"mode": "start", "stroke": clone_jsonable(stroke)}
+
+        if mode == "text":
+            text_item = payload.get("text")
+            if not text_item:
+                return None
+            filtered = [item for item in elements if item.get("id") != text_item["id"]]
+            if len(filtered) >= MAX_WHITEBOARD_ELEMENTS and not any(
+                item.get("id") == text_item["id"] for item in elements
+            ):
+                return None
+            filtered.append(clone_jsonable(text_item))
+            whiteboard["elements"] = filtered
+            return {"mode": "text", "text": clone_jsonable(text_item)}
+
+        stroke_id = normalize_element_id(payload.get("stroke_id"))
         if not stroke_id:
             return None
 
         stroke = next(
-            (item for item in whiteboard["strokes"] if item.get("id") == stroke_id), None
+            (
+                item
+                for item in whiteboard["elements"]
+                if item.get("kind") == "stroke" and item.get("id") == stroke_id
+            ),
+            None,
         )
         if not stroke:
             return None
@@ -183,7 +404,10 @@ class ConnectionManager:
             point = payload.get("point")
             if not point:
                 return None
-            stroke.setdefault("points", []).append(point)
+            points = stroke.setdefault("points", [])
+            if len(points) >= MAX_STROKE_POINTS:
+                return None
+            points.append(point)
             return {"mode": "point", "stroke_id": stroke_id, "point": clone_jsonable(point)}
 
         return {"mode": "end", "stroke_id": stroke_id}
@@ -224,6 +448,16 @@ async def set_room_user_muted(db: AsyncSession, room_user: RoomUser, *, is_muted
     await db.commit()
     await db.refresh(room_user)
     return room_user
+
+
+async def persist_room_whiteboard_state(db: AsyncSession, room: Room, whiteboard_state: dict):
+    room.whiteboard_enabled = whiteboard_state["enabled"]
+    room.whiteboard_state = serialize_whiteboard_state(whiteboard_state)
+    await db.commit()
+
+
+def load_room_whiteboard_state(room: Room) -> dict:
+    return sanitize_whiteboard_state(room.whiteboard_state, fallback_enabled=room.whiteboard_enabled)
 
 
 async def ensure_room_access(
@@ -285,8 +519,9 @@ async def room_ws(websocket: WebSocket, room_id: int):
 
         room_user = await set_room_user_active(db, room_user, is_active=True)
         participant = build_participant_state(user, room_user)
+        whiteboard_state = load_room_whiteboard_state(room)
 
-        await manager.connect(room_id, user.id, websocket, participant, room.whiteboard_enabled)
+        await manager.connect(room_id, user.id, websocket, participant, whiteboard_state)
         await websocket.send_text(
             json.dumps(
                 {
@@ -296,7 +531,7 @@ async def room_ws(websocket: WebSocket, room_id: int):
                         "id": room.id,
                         "name": room.name,
                         "owner_id": room.owner_id,
-                        "whiteboard_enabled": room.whiteboard_enabled,
+                        "whiteboard_enabled": whiteboard_state["enabled"],
                     },
                     "self_state": {
                         "audio_enabled": participant["audio_enabled"],
@@ -308,7 +543,7 @@ async def room_ws(websocket: WebSocket, room_id: int):
                         if item["id"] != user.id
                     ],
                     "whiteboard": manager.get_whiteboard_state(
-                        room_id, default_enabled=room.whiteboard_enabled
+                        room_id, default_enabled=whiteboard_state["enabled"]
                     ),
                 }
             )
@@ -322,6 +557,10 @@ async def room_ws(websocket: WebSocket, room_id: int):
 
         while True:
             data = await websocket.receive_text()
+            if len(data) > MAX_WS_MESSAGE_SIZE:
+                await websocket.close(code=1009)
+                return
+
             try:
                 payload = json.loads(data)
             except json.JSONDecodeError:
@@ -330,26 +569,47 @@ async def room_ws(websocket: WebSocket, room_id: int):
                 )
                 continue
 
+            if not isinstance(payload, dict):
+                await websocket.send_text(
+                    json.dumps({"type": "error", "detail": "invalid_payload"})
+                )
+                continue
+
             event_type = payload.get("type")
+            if not isinstance(event_type, str):
+                await websocket.send_text(
+                    json.dumps({"type": "error", "detail": "invalid_event_type"})
+                )
+                continue
+
             if event_type == "media_state":
-                audio_enabled = payload.get("audio_enabled")
-                video_enabled = payload.get("video_enabled")
+                validated = validate_media_state_payload(payload)
+                current_participant = manager.get_participant(room_id, user.id)
+                if not validated or not current_participant:
+                    await websocket.send_text(
+                        json.dumps({"type": "error", "detail": "invalid_media_state"})
+                    )
+                    continue
+
+                audio_enabled = validated["audio_enabled"]
+                video_enabled = validated["video_enabled"]
                 if isinstance(audio_enabled, bool):
                     room_user = await set_room_user_muted(
                         db, room_user, is_muted=not audio_enabled
                     )
+
                 participant = manager.set_participant_state(
                     room_id,
                     user.id,
                     audio_enabled=(
                         audio_enabled
                         if isinstance(audio_enabled, bool)
-                        else manager.get_participant(room_id, user.id)["audio_enabled"]
+                        else current_participant["audio_enabled"]
                     ),
                     video_enabled=(
                         video_enabled
                         if isinstance(video_enabled, bool)
-                        else manager.get_participant(room_id, user.id)["video_enabled"]
+                        else current_participant["video_enabled"]
                     ),
                 )
                 if participant:
@@ -366,7 +626,7 @@ async def room_ws(websocket: WebSocket, room_id: int):
                     )
                     continue
 
-                if not target_id or target_id == user.id:
+                if not isinstance(target_id, int) or target_id <= 0 or target_id == user.id:
                     continue
 
                 target_room_user = await get_room_user(db, room.id, target_id)
@@ -392,7 +652,7 @@ async def room_ws(websocket: WebSocket, room_id: int):
                     )
                     continue
 
-                if not target_id or target_id == user.id:
+                if not isinstance(target_id, int) or target_id <= 0 or target_id == user.id:
                     continue
 
                 target_room_user = await get_room_user(db, room.id, target_id)
@@ -404,7 +664,7 @@ async def room_ws(websocket: WebSocket, room_id: int):
                 await manager.close_user(room_id, target_id)
             elif event_type in {"offer", "answer", "ice"}:
                 target_id = payload.get("target_id")
-                if not target_id:
+                if not isinstance(target_id, int) or target_id <= 0 or target_id == user.id:
                     await websocket.send_text(
                         json.dumps({"type": "error", "detail": "missing_target"})
                     )
@@ -424,10 +684,15 @@ async def room_ws(websocket: WebSocket, room_id: int):
                     )
                     continue
 
-                enabled = bool(payload.get("enabled"))
-                room.whiteboard_enabled = enabled
-                await db.commit()
+                enabled = payload.get("enabled")
+                if not isinstance(enabled, bool):
+                    await websocket.send_text(
+                        json.dumps({"type": "error", "detail": "invalid_whiteboard_toggle"})
+                    )
+                    continue
+
                 whiteboard = manager.set_whiteboard_enabled(room_id, enabled)
+                await persist_room_whiteboard_state(db, room, whiteboard)
                 await manager.broadcast(
                     room_id,
                     {
@@ -444,7 +709,8 @@ async def room_ws(websocket: WebSocket, room_id: int):
                     )
                     continue
 
-                manager.clear_whiteboard(room_id)
+                whiteboard = manager.clear_whiteboard(room_id)
+                await persist_room_whiteboard_state(db, room, whiteboard)
                 await manager.broadcast(room_id, {"type": "whiteboard_clear"})
             elif event_type == "whiteboard_draw":
                 whiteboard = manager.get_whiteboard_state(room_id, room.whiteboard_enabled)
@@ -454,16 +720,30 @@ async def room_ws(websocket: WebSocket, room_id: int):
                     )
                     continue
 
-                draw_payload = manager.apply_whiteboard_draw(room_id, payload.get("payload") or {})
+                draw_payload = validate_whiteboard_event(payload.get("payload"), user.id)
                 if not draw_payload:
                     await websocket.send_text(
                         json.dumps({"type": "error", "detail": "invalid_whiteboard_payload"})
                     )
                     continue
 
+                applied_payload = manager.apply_whiteboard_draw(room_id, draw_payload)
+                if not applied_payload:
+                    await websocket.send_text(
+                        json.dumps({"type": "error", "detail": "invalid_whiteboard_payload"})
+                    )
+                    continue
+
+                if applied_payload["mode"] in {"start", "end", "text"}:
+                    await persist_room_whiteboard_state(
+                        db,
+                        room,
+                        manager.get_whiteboard_state(room_id, room.whiteboard_enabled),
+                    )
+
                 await manager.broadcast(
                     room_id,
-                    {"type": "whiteboard_draw", "payload": draw_payload, "from_id": user.id},
+                    {"type": "whiteboard_draw", "payload": applied_payload, "from_id": user.id},
                     exclude_user_id=user.id,
                 )
             else:

@@ -1,38 +1,52 @@
 from typing import Optional
 
-from pydantic import BaseModel
+from pydantic import BaseModel, ConfigDict, Field, constr
+
+UsernameStr = constr(
+    strip_whitespace=True,
+    min_length=3,
+    max_length=24,
+    pattern=r"^[A-Za-z0-9_][A-Za-z0-9_.-]{2,23}$",
+)
+PasswordStr = constr(min_length=8, max_length=128)
+RoomNameStr = constr(strip_whitespace=True, min_length=3, max_length=80)
+RoomCodeStr = constr(strip_whitespace=True, pattern=r"^\d{5}$")
 
 
-class UserCreate(BaseModel):
-    username: str
-    password: str
+class StrictSchema(BaseModel):
+    model_config = ConfigDict(extra="forbid", str_strip_whitespace=True)
 
 
-class UserLogin(BaseModel):
-    username: str
-    password: str
+class UserCreate(StrictSchema):
+    username: UsernameStr
+    password: PasswordStr
 
 
-class Token(BaseModel):
+class UserLogin(StrictSchema):
+    username: UsernameStr
+    password: PasswordStr
+
+
+class Token(StrictSchema):
     access_token: str
     token_type: str = "bearer"
 
 
-class RoomCreate(BaseModel):
-    name: str
+class RoomCreate(StrictSchema):
+    name: RoomNameStr
     is_private: bool = False
     whiteboard_enabled: bool = False
 
 
-class RoomJoin(BaseModel):
-    room_id: int
+class RoomJoin(StrictSchema):
+    room_id: int = Field(gt=0)
 
 
-class RoomJoinByCode(BaseModel):
-    code: str
+class RoomJoinByCode(StrictSchema):
+    code: RoomCodeStr
 
 
-class RoomOut(BaseModel):
+class RoomOut(StrictSchema):
     id: int
     name: str
     is_private: bool
@@ -42,11 +56,10 @@ class RoomOut(BaseModel):
     whiteboard_enabled: bool = False
     active_users: int = 0
 
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True, extra="forbid", str_strip_whitespace=True)
 
 
-class RoomUserOut(BaseModel):
+class RoomUserOut(StrictSchema):
     id: int
     user_id: int
     room_id: int
@@ -54,5 +67,4 @@ class RoomUserOut(BaseModel):
     is_banned: bool
     is_active: bool
 
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True, extra="forbid", str_strip_whitespace=True)

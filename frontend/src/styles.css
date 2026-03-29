@@ -183,9 +183,27 @@ button {
   font-weight: 600;
 }
 
+button,
+input,
+textarea {
+  transition:
+    border-color 0.2s ease,
+    box-shadow 0.2s ease,
+    transform 0.2s ease,
+    background-color 0.2s ease;
+}
+
 button:disabled {
   opacity: 0.5;
   cursor: not-allowed;
+}
+
+button:focus-visible,
+input:focus-visible,
+textarea:focus-visible {
+  outline: none;
+  border-color: rgba(90, 124, 255, 0.7);
+  box-shadow: 0 0 0 3px rgba(90, 124, 255, 0.18);
 }
 
 .primary {
@@ -267,6 +285,22 @@ input {
   background: rgba(255, 255, 255, 0.04);
   border: 1px solid rgba(255, 255, 255, 0.08);
   color: var(--text);
+}
+
+textarea {
+  padding: 12px 14px;
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  color: var(--text);
+  font: inherit;
+  resize: vertical;
+}
+
+.form-error {
+  margin: 0;
+  color: #ffb0b0;
+  font-size: 13px;
 }
 
 .join-actions {
@@ -575,6 +609,12 @@ input {
   flex-wrap: wrap;
 }
 
+.tool-row {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
 .color-row {
   display: flex;
   gap: 10px;
@@ -600,6 +640,14 @@ input {
 
 .board-size input {
   width: 160px;
+}
+
+.board-text-input {
+  gap: 10px;
+}
+
+.board-text-input textarea {
+  min-height: 92px;
 }
 
 .whiteboard-shell {
