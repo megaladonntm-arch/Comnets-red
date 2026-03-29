@@ -58,7 +58,7 @@ function drawTextItem(ctx, item, width, height) {
   const lines = item.text.split("\n");
   ctx.save();
   ctx.fillStyle = item.color || COLORS[0];
-  ctx.font = `600 ${fontSize}px Manrope, system-ui, sans-serif`;
+  ctx.font = `600 ${fontSize}px Inter, system-ui, sans-serif`;
   ctx.textBaseline = "top";
   lines.forEach((line, index) => {
     ctx.fillText(line, point.x * width, point.y * height + index * (fontSize + 4));
