@@ -172,6 +172,7 @@ export default function WhiteboardCanvas({
       onDrawEvent({
         mode: "text",
         text: {
+          kind: "text",
           id: `${clientId || "user"}-text-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
           author_id: clientId,
           color: brushColor,
@@ -184,6 +185,7 @@ export default function WhiteboardCanvas({
     }
 
     const stroke = {
+      kind: "stroke",
       id: `${clientId || "user"}-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
       author_id: clientId,
       color: brushColor,

@@ -406,17 +406,23 @@ export default function Room({ room, username, token, isOwner, onLeave }) {
     if (!payload?.mode) return;
     setWhiteboardElements((prev) => {
       if (payload.mode === "start" && payload.stroke) {
-        return [...prev.filter((item) => item.id !== payload.stroke.id), payload.stroke];
+        return [
+          ...prev.filter((item) => item.id !== payload.stroke.id),
+          { kind: "stroke", ...payload.stroke }
+        ];
       }
       if (payload.mode === "point" && payload.stroke_id && payload.point) {
         return prev.map((item) =>
-          item.kind === "stroke" && item.id === payload.stroke_id
+          item.id === payload.stroke_id
             ? { ...item, points: [...(item.points || []), payload.point] }
             : item
         );
       }
       if (payload.mode === "text" && payload.text) {
-        return [...prev.filter((item) => item.id !== payload.text.id), payload.text];
+        return [
+          ...prev.filter((item) => item.id !== payload.text.id),
+          { kind: "text", ...payload.text }
+        ];
       }
       return prev;
     });

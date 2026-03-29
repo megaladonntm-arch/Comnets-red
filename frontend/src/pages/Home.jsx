@@ -63,6 +63,31 @@ export default function Home({
 
       <main className="layout">
         <section className="rooms-panel">
+          <section className="hero-panel card">
+            <div className="hero-copy">
+              <p className="eyebrow">Realtime collaboration</p>
+              <h2>Fast voice rooms with shared board and moderation built in.</h2>
+              <p className="muted">
+                Comnot is tuned for compact sessions: calls, live board sketches, quick text
+                notes and private access codes without clutter.
+              </p>
+            </div>
+            <div className="hero-metrics">
+              <div className="metric-card">
+                <strong>{roomCount}</strong>
+                <span>active public rooms</span>
+              </div>
+              <div className="metric-card">
+                <strong>4</strong>
+                <span>participants per room</span>
+              </div>
+              <div className="metric-card">
+                <strong>Live</strong>
+                <span>audio, video and board sync</span>
+              </div>
+            </div>
+          </section>
+
           <header className="panel-header">
             <div>
               <p className="eyebrow">Rooms</p>
@@ -158,6 +183,24 @@ export default function Home({
               Quick rooms for 2-4 people. Create private lounges with a 5-digit
               code and keep the conversation tight.
             </p>
+          </div>
+
+          <div className="card feature-stack">
+            <div className="feature-item">
+              <span className="feature-kicker">Calls</span>
+              <strong>Stable reconnect behavior</strong>
+              <p className="muted">Sockets and peer sessions recover more gracefully.</p>
+            </div>
+            <div className="feature-item">
+              <span className="feature-kicker">Board</span>
+              <strong>Draw, add text, save PNG</strong>
+              <p className="muted">Quick whiteboarding without leaving the room context.</p>
+            </div>
+            <div className="feature-item">
+              <span className="feature-kicker">Control</span>
+              <strong>Stronger validation and moderation</strong>
+              <p className="muted">Cleaner payload handling and owner actions built in.</p>
+            </div>
           </div>
         </section>
       </main>
