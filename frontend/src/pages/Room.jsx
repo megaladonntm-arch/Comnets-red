@@ -17,7 +17,7 @@ const DEFAULT_MEDIA_STATE = {
 
 const RECONNECT_DELAYS = [1000, 2000, 4000, 8000];
 
-export default function Room({ room, username, token, isOwner, onLeave }) {
+export default function Room({ room, username, token, isOwner, onLeave, settings, onOpenSettings }) {
   const [participants, setParticipants] = useState({});
   const [selfId, setSelfId] = useState(null);
   const [localStream, setLocalStream] = useState(null);
@@ -41,6 +41,23 @@ export default function Room({ room, username, token, isOwner, onLeave }) {
   const reconnectTimerRef = useRef(null);
   const reconnectAttemptRef = useRef(0);
   const shuttingDownRef = useRef(false);
+
+  const buildAudioConstraints = (deviceId, strict = true) => {
+    if (!deviceId) return true;
+    return { deviceId: strict ? { exact: deviceId } : deviceId };
+  };
+
+  const buildVideoConstraints = (deviceId, strict = true) => {
+    const base = {
+      width: { ideal: 1280 },
+      height: { ideal: 720 }
+    };
+    if (!deviceId) return base;
+    return {
+      ...base,
+      deviceId: strict ? { exact: deviceId } : deviceId
+    };
+  };
 
   const dispatchWS = (payload) => {
     const socket = socketRef.current;
@@ -212,17 +229,26 @@ export default function Room({ room, username, token, isOwner, onLeave }) {
   };
 
   const requestMissingTrack = async (kind) => {
+    const preferredDeviceId =
+      kind === "audio" ? settings?.audioInputId || "" : settings?.videoInputId || "";
+    const preferredConstraints =
+      kind === "audio" ? buildAudioConstraints(preferredDeviceId) : buildVideoConstraints(preferredDeviceId);
+    const fallbackConstraints =
+      kind === "audio" ? true : { width: { ideal: 1280 }, height: { ideal: 720 } };
+
     try {
-      const stream = await navigator.mediaDevices.getUserMedia(
-        kind === "audio"
-          ? { audio: true }
-          : {
-              video: {
-                width: { ideal: 1280 },
-                height: { ideal: 720 }
-              }
-            }
-      );
+      let stream;
+      try {
+        stream = await navigator.mediaDevices.getUserMedia(
+          kind === "audio"
+            ? { audio: preferredConstraints }
+            : { video: preferredConstraints }
+        );
+      } catch {
+        stream = await navigator.mediaDevices.getUserMedia(
+          kind === "audio" ? { audio: fallbackConstraints } : { video: fallbackConstraints }
+        );
+      }
       const track = kind === "audio" ? stream.getAudioTracks()[0] : stream.getVideoTracks()[0];
       if (!track) return false;
 
@@ -250,10 +276,24 @@ export default function Room({ room, username, token, isOwner, onLeave }) {
   const initLocalMedia = async () => {
     if (localStreamRef.current) return localStreamRef.current;
 
+    const preferredAudio = settings?.audioInputId || "";
+    const preferredVideo = settings?.videoInputId || "";
     const attempts = [
-      { audio: true, video: { width: { ideal: 1280 }, height: { ideal: 720 } } },
+      {
+        audio: buildAudioConstraints(preferredAudio),
+        video: buildVideoConstraints(preferredVideo)
+      },
+      {
+        audio: buildAudioConstraints(preferredAudio),
+        video: false
+      },
+      {
+        audio: false,
+        video: buildVideoConstraints(preferredVideo)
+      },
+      { audio: true, video: buildVideoConstraints("") },
       { audio: true, video: false },
-      { audio: false, video: { width: { ideal: 1280 }, height: { ideal: 720 } } }
+      { audio: false, video: buildVideoConstraints("") }
     ];
 
     let stream = null;
@@ -708,7 +748,7 @@ export default function Room({ room, username, token, isOwner, onLeave }) {
       setLocalStream(null);
       stopSpeakingMonitor();
     };
-  }, [room.id, room.whiteboard_enabled, token]);
+  }, [room.id, room.whiteboard_enabled, settings?.audioInputId, settings?.videoInputId, token]);
 
   const slots = useMemo(() => {
     const list = [
@@ -774,17 +814,14 @@ export default function Room({ room, username, token, isOwner, onLeave }) {
 
   return (
     <div className="app">
-      <TopBar roomName={room.name} />
+      <TopBar roomName={room.name} onSettingsClick={onOpenSettings} />
 
       <main className="room-layout">
         <section className="room-hero card">
           <div className="room-hero-copy">
             <p className="eyebrow">Live room</p>
             <h2>{room.name}</h2>
-            <p className="muted">
-              A channel-style collaboration room with live media, shared whiteboard state and
-              owner controls in one surface.
-            </p>
+            <p className="muted">Live media, board and controls in one room.</p>
             <div className="room-meta-strip">
               <span className="room-meta-chip">{room.is_private ? "Private room" : "Public room"}</span>
               <span className="room-meta-chip">Owner @{room.owner_username}</span>
@@ -834,22 +871,20 @@ export default function Room({ room, username, token, isOwner, onLeave }) {
                   ? "Offline"
                   : "Reconnecting"}
             </h3>
-            <p className="muted">
-              WebRTC calls, room events and recovery now stay synchronized in real time.
-            </p>
+            <p className="muted">Room link status.</p>
           </div>
           <div className="status-card card">
             <p className="eyebrow">Participants</p>
             <h3>{Object.keys(participants).length + 1}/4</h3>
-            <p className="muted">Camera, microphone and moderation state stay synchronized.</p>
+            <p className="muted">Live member status.</p>
           </div>
           <div className="status-card card">
             <p className="eyebrow">Board</p>
             <h3>{whiteboardEnabled ? "Enabled" : "Disabled"}</h3>
             <p className="muted">
               {isOwner
-                ? "You can switch the collaborative board on or off for everyone."
-                : "Board availability is controlled by the room owner."}
+                ? "Board control is yours."
+                : "Board is controlled by owner."}
             </p>
           </div>
         </section>
@@ -860,7 +895,7 @@ export default function Room({ room, username, token, isOwner, onLeave }) {
               <div>
                 <p className="eyebrow">Live stage</p>
                 <h3>Video presence</h3>
-                <p className="muted">Keep everyone visible without losing the room hierarchy.</p>
+                <p className="muted">Clean stage view.</p>
               </div>
               <div className="stage-badge">{videoTiles.length} feeds ready</div>
             </div>
@@ -876,9 +911,7 @@ export default function Room({ room, username, token, isOwner, onLeave }) {
               <div>
                 <p className="eyebrow">Participants</p>
                 <h3>Room roster</h3>
-                <p className="muted">
-                  Status stays visible so moderation and speaking order stay easy to read.
-                </p>
+                <p className="muted">Simple roster and status.</p>
               </div>
             </div>
             <UserGrid

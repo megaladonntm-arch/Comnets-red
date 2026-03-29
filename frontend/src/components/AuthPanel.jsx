@@ -41,8 +41,8 @@ export default function AuthPanel({ onLogin, onRegister, mode, onModeChange }) {
         <h3>{activeMode === "login" ? "Enter your hub" : "Claim your profile"}</h3>
         <p className="muted">
           {activeMode === "login"
-            ? "Jump back into live rooms, stage controls and shared boards."
-            : "Create an account once and spin up rooms, private access codes and boards in seconds."}
+            ? "Back to your rooms."
+            : "Create account and start fast."}
         </p>
       </div>
 

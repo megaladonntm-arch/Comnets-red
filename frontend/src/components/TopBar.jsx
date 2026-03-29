@@ -5,7 +5,8 @@ export default function TopBar({
   roomName,
   onLoginClick,
   onRegisterClick,
-  onBack
+  onBack,
+  onSettingsClick
 }) {
   return (
     <header className="topbar">
@@ -38,6 +39,9 @@ export default function TopBar({
                 <div className="avatar-sm">{(username || "?").slice(0, 2).toUpperCase()}</div>
                 <span>@{username}</span>
               </div>
+              <button className="ghost" onClick={onSettingsClick} type="button">
+                Settings
+              </button>
               <button className="ghost" onClick={onLogout}>
                 Logout
               </button>
@@ -59,6 +63,14 @@ export default function TopBar({
         <div className="top-actions">
           <button className="ghost" onClick={onBack}>
             Back
+          </button>
+        </div>
+      )}
+
+      {roomName && roomName !== "Auth" && onSettingsClick && (
+        <div className="top-actions">
+          <button className="ghost" onClick={onSettingsClick} type="button">
+            Settings
           </button>
         </div>
       )}

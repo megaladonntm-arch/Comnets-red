@@ -10,10 +10,7 @@ export default function AuthPage({ mode, onModeChange, onLogin, onRegister, onBa
           <div className="card auth-showcase">
             <p className="eyebrow">Hub access</p>
             <h2>Step into a room flow that feels alive from the first second.</h2>
-            <p className="muted">
-              Log in to create channel-like rooms with instant codes, live board tools and owner
-              controls that stay readable while the session moves fast.
-            </p>
+            <p className="muted">Minimal room flow. Fast entry. Clear controls.</p>
             <div className="feature-stack">
               <div className="feature-item">
                 <span className="feature-kicker">Fast start</span>

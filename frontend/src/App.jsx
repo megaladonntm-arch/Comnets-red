@@ -2,9 +2,18 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import Home from "./pages/Home.jsx";
 import Room from "./pages/Room.jsx";
 import AuthPage from "./pages/Auth.jsx";
+import UserSettingsModal from "./components/UserSettingsModal.jsx";
 import { api } from "./services/api.js";
 
 const STORAGE_KEY = "comnot_auth";
+const SETTINGS_STORAGE_PREFIX = "comnot_settings";
+const DEFAULT_SETTINGS = {
+  theme: "midnight",
+  background: "grid",
+  iconStyle: "rounded",
+  audioInputId: "",
+  videoInputId: ""
+};
 
 export default function App() {
   const [token, setToken] = useState("");
@@ -13,6 +22,8 @@ export default function App() {
   const [currentRoom, setCurrentRoom] = useState(null);
   const [isOwner, setIsOwner] = useState(false);
   const [authView, setAuthView] = useState({ open: false, mode: "login" });
+  const [settings, setSettings] = useState(DEFAULT_SETTINGS);
+  const [settingsOpen, setSettingsOpen] = useState(false);
 
   useEffect(() => {
     const raw = localStorage.getItem(STORAGE_KEY);
@@ -34,6 +45,40 @@ export default function App() {
       setIsOwner(false);
     }
   }, [token]);
+
+  useEffect(() => {
+    const storageKey = `${SETTINGS_STORAGE_PREFIX}_${username || "guest"}`;
+    const raw = localStorage.getItem(storageKey);
+    if (!raw) {
+      setSettings(DEFAULT_SETTINGS);
+      return;
+    }
+
+    try {
+      const parsed = JSON.parse(raw);
+      setSettings({ ...DEFAULT_SETTINGS, ...parsed });
+    } catch {
+      localStorage.removeItem(storageKey);
+      setSettings(DEFAULT_SETTINGS);
+    }
+  }, [username]);
+
+  useEffect(() => {
+    const storageKey = `${SETTINGS_STORAGE_PREFIX}_${username || "guest"}`;
+    localStorage.setItem(storageKey, JSON.stringify(settings));
+  }, [settings, username]);
+
+  useEffect(() => {
+    document.documentElement.dataset.themePreset = settings.theme;
+    document.documentElement.dataset.backgroundPreset = settings.background;
+    document.documentElement.dataset.iconPreset = settings.iconStyle;
+
+    return () => {
+      delete document.documentElement.dataset.themePreset;
+      delete document.documentElement.dataset.backgroundPreset;
+      delete document.documentElement.dataset.iconPreset;
+    };
+  }, [settings.background, settings.iconStyle, settings.theme]);
 
   const authed = useMemo(() => Boolean(token), [token]);
 
@@ -103,41 +148,74 @@ export default function App() {
 
   if (currentRoom) {
     return (
-      <Room
-        room={currentRoom}
-        username={username}
-        token={token}
-        isOwner={isOwner}
-        onLeave={() => setCurrentRoom(null)}
-      />
+      <>
+        <Room
+          room={currentRoom}
+          username={username}
+          token={token}
+          isOwner={isOwner}
+          settings={settings}
+          onLeave={() => setCurrentRoom(null)}
+          onOpenSettings={() => setSettingsOpen(true)}
+        />
+        {settingsOpen && (
+          <UserSettingsModal
+            username={username}
+            settings={settings}
+            onClose={() => setSettingsOpen(false)}
+            onSave={setSettings}
+          />
+        )}
+      </>
     );
   }
 
   if (authView.open) {
     return (
-      <AuthPage
-        mode={authView.mode}
-        onModeChange={(mode) => setAuthView({ open: true, mode })}
-        onLogin={handleLogin}
-        onRegister={handleRegister}
-        onBack={() => setAuthView({ open: false, mode: "login" })}
-      />
+      <>
+        <AuthPage
+          mode={authView.mode}
+          onModeChange={(mode) => setAuthView({ open: true, mode })}
+          onLogin={handleLogin}
+          onRegister={handleRegister}
+          onBack={() => setAuthView({ open: false, mode: "login" })}
+        />
+        {settingsOpen && (
+          <UserSettingsModal
+            username={username}
+            settings={settings}
+            onClose={() => setSettingsOpen(false)}
+            onSave={setSettings}
+          />
+        )}
+      </>
     );
   }
 
   return (
-    <Home
-      rooms={rooms}
-      authed={authed}
-      username={username}
-      onLogout={logout}
-      onRefresh={refreshRooms}
-      onCreateRoom={handleCreateRoom}
-      onEnterOwnerRoom={enterRoomAsOwner}
-      onJoinRoom={handleJoinRoom}
-      onJoinByCode={handleJoinByCode}
-      onJoinRandom={handleJoinRandom}
-      onOpenAuth={(mode) => setAuthView({ open: true, mode })}
-    />
+    <>
+      <Home
+        rooms={rooms}
+        authed={authed}
+        username={username}
+        onLogout={logout}
+        onRefresh={refreshRooms}
+        onCreateRoom={handleCreateRoom}
+        onEnterOwnerRoom={enterRoomAsOwner}
+        onJoinRoom={handleJoinRoom}
+        onJoinByCode={handleJoinByCode}
+        onJoinRandom={handleJoinRandom}
+        onOpenAuth={(mode) => setAuthView({ open: true, mode })}
+        onOpenSettings={() => setSettingsOpen(true)}
+      />
+      {settingsOpen && (
+        <UserSettingsModal
+          username={username}
+          settings={settings}
+          onClose={() => setSettingsOpen(false)}
+          onSave={setSettings}
+        />
+      )}
+    </>
   );
 }

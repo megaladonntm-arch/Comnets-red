@@ -16,7 +16,8 @@ export default function Home({
   onJoinRoom,
   onJoinByCode,
   onJoinRandom,
-  onOpenAuth
+  onOpenAuth,
+  onOpenSettings
 }) {
   const [showCreate, setShowCreate] = useState(false);
   const [joinCode, setJoinCode] = useState("");
@@ -57,6 +58,7 @@ export default function Home({
         onLogout={onLogout}
         onLoginClick={() => onOpenAuth("login")}
         onRegisterClick={() => onOpenAuth("register")}
+        onSettingsClick={authed ? onOpenSettings : undefined}
       />
 
       <main className="home-shell">
@@ -64,10 +66,7 @@ export default function Home({
           <div className="hero-copy">
             <p className="eyebrow">Realtime rooms</p>
             <h2>Voice hubs with stage energy, sharp hierarchy and zero clutter.</h2>
-            <p className="muted">
-              Comnot brings together live voice, video, a shared board and moderation inside a
-              room UI that feels active the moment people join.
-            </p>
+            <p className="muted">Voice, video, board and moderation in one clean room.</p>
             <div className="hero-actions">
               {authed ? (
                 <>
@@ -128,10 +127,7 @@ export default function Home({
             <div className="spotlight-card">
               <p className="spotlight-kicker">Hub preview</p>
               <strong>Channel-style rooms with their own pulse.</strong>
-              <p>
-                Spin up a controlled room with owner actions, instant access codes and a live
-                shared canvas that stays inside the conversation instead of around it.
-              </p>
+              <p>Private code, clear controls, live board.</p>
               <div className="spotlight-metric">
                 <span>5-digit access</span>
                 <span>Stage controls built in</span>
@@ -141,12 +137,12 @@ export default function Home({
               <div className="showcase-card">
                 <p className="eyebrow">Use case</p>
                 <h3>Team hubs</h3>
-                <p>Drop into a room that already feels organized and alive.</p>
+                <p>Join fast and stay focused.</p>
               </div>
               <div className="showcase-card accent">
                 <p className="eyebrow">Flow</p>
                 <h3>Join, talk, sketch and move</h3>
-                <p>No extra tabs, no buried controls and no dead-feeling interface.</p>
+                <p>No extra tabs. No clutter.</p>
               </div>
             </div>
           </div>
@@ -159,9 +155,7 @@ export default function Home({
                 <div>
                   <p className="eyebrow">Discovery</p>
                   <h2>Browse live public hubs</h2>
-                  <p className="muted">
-                    Enter open rooms that already have motion, conversation and board activity.
-                  </p>
+                  <p className="muted">Open rooms. Fast join. No clutter.</p>
                 </div>
                 <button className="ghost" onClick={onRefresh} type="button">
                   Refresh
@@ -193,10 +187,7 @@ export default function Home({
               <div className="card auth-card">
                 <p className="eyebrow">Access</p>
                 <h3>Enter your hub first</h3>
-                <p className="muted">
-                  Sign in once to create rooms, jump into live sessions and share private access
-                  codes without friction.
-                </p>
+                <p className="muted">Sign in once and keep everything synced.</p>
                 <div className="join-actions">
                   <button className="primary" onClick={() => onOpenAuth("login")} type="button">
                     Open login
@@ -214,9 +205,7 @@ export default function Home({
               <div className="card focus-card">
                 <p className="eyebrow">Quick entry</p>
                 <h3>Join by code or jump into a live room</h3>
-                <p className="muted">
-                  Use direct access for private sessions or land in a live public room instantly.
-                </p>
+                <p className="muted">Direct code or instant join.</p>
                 <div className="join-actions">
                   <button
                     className="primary"
@@ -259,27 +248,24 @@ export default function Home({
             <div className="card info-card">
               <p className="eyebrow">Why it works</p>
               <h3>Built like a compact community tool, not a blank meeting window</h3>
-              <p className="muted">
-                Comnot gives rooms a stronger sense of place: visible presence, clear actions and
-                better energy than a bare utility link.
-              </p>
+              <p className="muted">Clear presence, clear actions, cleaner room flow.</p>
             </div>
 
             <div className="card feature-stack">
               <div className="feature-item">
                 <span className="feature-kicker">Calls</span>
                 <strong>Live media with smoother recovery</strong>
-                <p className="muted">Rooms stay more stable through reconnect churn.</p>
+                <p className="muted">More stable reconnects.</p>
               </div>
               <div className="feature-item">
                 <span className="feature-kicker">Whiteboard</span>
                 <strong>Sketch, annotate and export in one flow</strong>
-                <p className="muted">Shared board actions stay inside the room context.</p>
+                <p className="muted">Board stays inside the room.</p>
               </div>
               <div className="feature-item">
                 <span className="feature-kicker">Moderation</span>
                 <strong>Owner controls without product clutter</strong>
-                <p className="muted">Mute, remove and manage participation from the same surface.</p>
+                <p className="muted">Mute and manage from one place.</p>
               </div>
             </div>
           </section>
