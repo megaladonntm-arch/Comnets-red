@@ -5,14 +5,14 @@ const TEXT_LIMIT = 160;
 
 function drawBoardBackground(ctx, width, height) {
   const gradient = ctx.createLinearGradient(0, 0, 0, height);
-  gradient.addColorStop(0, "#0c1018");
-  gradient.addColorStop(1, "#151b24");
+  gradient.addColorStop(0, "#fffaf2");
+  gradient.addColorStop(1, "#f4ecde");
 
   ctx.fillStyle = gradient;
   ctx.fillRect(0, 0, width, height);
 
   ctx.save();
-  ctx.strokeStyle = "rgba(255, 255, 255, 0.05)";
+  ctx.strokeStyle = "rgba(26, 40, 61, 0.08)";
   ctx.lineWidth = 1;
   for (let x = 0; x < width; x += 28) {
     ctx.beginPath();
@@ -58,7 +58,7 @@ function drawTextItem(ctx, item, width, height) {
   const lines = item.text.split("\n");
   ctx.save();
   ctx.fillStyle = item.color || COLORS[0];
-  ctx.font = `${fontSize}px Inter, system-ui, sans-serif`;
+  ctx.font = `600 ${fontSize}px Manrope, system-ui, sans-serif`;
   ctx.textBaseline = "top";
   lines.forEach((line, index) => {
     ctx.fillText(line, point.x * width, point.y * height + index * (fontSize + 4));

@@ -5,20 +5,23 @@ export default function UserGrid({ slots, isOwner, onMute, onBan }) {
         <div key={index} className="user-card">
           {user ? (
             <>
-              <div className="avatar">{user.username.slice(0, 2).toUpperCase()}</div>
-              <div>
-                <h4>{user.username}</h4>
-                <p className={user.online ? "active" : "muted"}>
-                  {user.online ? "Connected" : "Offline"}
-                </p>
+              <div className="user-card-head">
+                <div className="avatar">{user.username.slice(0, 2).toUpperCase()}</div>
+                <div className="user-card-copy">
+                  <p className="eyebrow">{user.self ? "You" : `Seat 0${index + 1}`}</p>
+                  <h4>{user.username}</h4>
+                  <p className={user.online ? "active" : "muted"}>
+                    {user.online ? "Connected now" : "Offline"}
+                  </p>
+                </div>
+                {user.speaking && <span className="mic-pill">Speaking</span>}
               </div>
-              {user.speaking && <span className="mic-pill">Mic</span>}
               <div className="status-row">
                 <span className={user.audioEnabled ? "status-chip active" : "status-chip off"}>
-                  {user.audioEnabled ? "Mic on" : "Mic off"}
+                  {user.audioEnabled ? "Mic on" : "Mic muted"}
                 </span>
                 <span className={user.videoEnabled ? "status-chip active" : "status-chip off"}>
-                  {user.videoEnabled ? "Cam on" : "Cam off"}
+                  {user.videoEnabled ? "Camera on" : "Camera off"}
                 </span>
               </div>
               {isOwner && !user.self && (
@@ -33,7 +36,10 @@ export default function UserGrid({ slots, isOwner, onMute, onBan }) {
               )}
             </>
           ) : (
-            <div className="empty-slot">Empty</div>
+            <div className="empty-slot">
+              <strong>Seat available</strong>
+              <span>Invite another participant into the room.</span>
+            </div>
           )}
         </div>
       ))}

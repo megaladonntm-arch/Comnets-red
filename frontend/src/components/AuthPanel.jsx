@@ -36,6 +36,16 @@ export default function AuthPanel({ onLogin, onRegister, mode, onModeChange }) {
 
   return (
     <div className="card auth-card">
+      <div className="auth-card-header">
+        <p className="eyebrow">{activeMode === "login" ? "Welcome back" : "Create access"}</p>
+        <h3>{activeMode === "login" ? "Enter your workspace" : "Launch your profile"}</h3>
+        <p className="muted">
+          {activeMode === "login"
+            ? "Jump straight into live rooms, moderation controls and shared boards."
+            : "Create an account once and open private collaboration rooms in seconds."}
+        </p>
+      </div>
+
       <div className="tabs">
         <button
           className={activeMode === "login" ? "tab active" : "tab"}

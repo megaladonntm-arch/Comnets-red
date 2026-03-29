@@ -777,13 +777,24 @@ export default function Room({ room, username, token, isOwner, onLeave }) {
       <TopBar roomName={room.name} />
 
       <main className="room-layout">
-        <section className="room-header room-hero card">
-          <div>
-            <p className="eyebrow">Room</p>
+        <section className="room-hero card">
+          <div className="room-hero-copy">
+            <p className="eyebrow">Live session</p>
             <h2>{room.name}</h2>
             <p className="muted">
-              {room.is_private ? "Private room" : "Public room"} | Owner: @{room.owner_username}
+              A focused collaboration lane with live media, shared whiteboard state and owner
+              controls in one surface.
             </p>
+            <div className="room-meta-strip">
+              <span className="room-meta-chip">{room.is_private ? "Private room" : "Public room"}</span>
+              <span className="room-meta-chip">Owner @{room.owner_username}</span>
+              <span className="room-meta-chip">
+                {Object.keys(participants).length + 1}/4 participants
+              </span>
+              {room.is_private && room.code ? (
+                <span className="room-meta-chip">Code {room.code}</span>
+              ) : null}
+            </div>
           </div>
           <div className="room-actions">
             <button
@@ -843,17 +854,40 @@ export default function Room({ room, username, token, isOwner, onLeave }) {
           </div>
         </section>
 
-        <UserGrid
-          slots={slots}
-          isOwner={isOwner}
-          onMute={(id) => dispatchWS({ type: "mute_user", user_id: id })}
-          onBan={(id) => dispatchWS({ type: "ban_user", user_id: id })}
-        />
+        <section className="room-sections">
+          <section className="stage-panel card">
+            <div className="section-intro">
+              <div>
+                <p className="eyebrow">Live stage</p>
+                <h3>Video presence</h3>
+                <p className="muted">Keep everyone visible without losing the premium room feel.</p>
+              </div>
+              <div className="stage-badge">{videoTiles.length} feeds ready</div>
+            </div>
+            <div className="video-grid">
+              {videoTiles.map((tile) => (
+                <VideoTile key={tile.id} {...tile} />
+              ))}
+            </div>
+          </section>
 
-        <section className="video-grid">
-          {videoTiles.map((tile) => (
-            <VideoTile key={tile.id} {...tile} />
-          ))}
+          <section className="user-panel card">
+            <div className="section-intro">
+              <div>
+                <p className="eyebrow">Participants</p>
+                <h3>Room roster</h3>
+                <p className="muted">
+                  Status stays visible so moderation and speaking order stay easy to read.
+                </p>
+              </div>
+            </div>
+            <UserGrid
+              slots={slots}
+              isOwner={isOwner}
+              onMute={(id) => dispatchWS({ type: "mute_user", user_id: id })}
+              onBan={(id) => dispatchWS({ type: "ban_user", user_id: id })}
+            />
+          </section>
         </section>
 
         <WhiteboardCanvas

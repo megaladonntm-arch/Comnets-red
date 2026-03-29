@@ -130,8 +130,6 @@ export default function App() {
       rooms={rooms}
       authed={authed}
       username={username}
-      onLogin={handleLogin}
-      onRegister={handleRegister}
       onLogout={logout}
       onRefresh={refreshRooms}
       onCreateRoom={handleCreateRoom}

@@ -13,14 +13,25 @@ export default function TopBar({
         <div className="logo">
           <img src="/photos/COMNOT.png" alt="Comnot" />
         </div>
-        <div>
+        <div className="brand-copy">
           <p className="eyebrow">Comnot</p>
-          <h1>{roomName || "Voice rooms"}</h1>
+          <h1>{roomName || "Premium voice rooms"}</h1>
+          <p className="brand-note">
+            {roomName === "Auth"
+              ? "Secure access for your collaboration space."
+              : roomName
+                ? "Focused session controls, live media and whiteboard sync."
+                : "Private calls, shared board and moderation in one polished surface."}
+          </p>
         </div>
       </div>
 
       {!roomName && (
         <div className="top-actions">
+          <div className="top-status">
+            <span className="status-dot" />
+            <span>Live collaboration</span>
+          </div>
           {authed ? (
             <>
               <div className="user-chip">
