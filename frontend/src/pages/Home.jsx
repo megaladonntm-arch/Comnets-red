@@ -62,11 +62,11 @@ export default function Home({
       <main className="home-shell">
         <section className="hero-panel card">
           <div className="hero-copy">
-            <p className="eyebrow">Realtime collaboration</p>
-            <h2>Voice rooms that look premium and feel effortless to use.</h2>
+            <p className="eyebrow">Realtime rooms</p>
+            <h2>Voice hubs with stage energy, sharp hierarchy and zero clutter.</h2>
             <p className="muted">
-              Comnot packages private calls, live video, a shared board and moderation into a
-              product surface that feels sharp from the first click.
+              Comnot brings together live voice, video, a shared board and moderation inside a
+              room UI that feels active the moment people join.
             </p>
             <div className="hero-actions">
               {authed ? (
@@ -111,42 +111,42 @@ export default function Home({
             <div className="hero-proof">
               <div className="proof-item">
                 <strong>{roomCount}</strong>
-                <span>public rooms live</span>
+                <span>public hubs live</span>
               </div>
               <div className="proof-item">
                 <strong>4 seats</strong>
-                <span>tight focused sessions</span>
+                <span>tight stage format</span>
               </div>
               <div className="proof-item">
                 <strong>One flow</strong>
-                <span>audio, video and board sync</span>
+                <span>voice, video and board sync</span>
               </div>
             </div>
           </div>
 
           <div className="hero-showcase">
             <div className="spotlight-card">
-              <p className="spotlight-kicker">Signature room experience</p>
-              <strong>Private by default. Fast by design.</strong>
+              <p className="spotlight-kicker">Hub preview</p>
+              <strong>Channel-style rooms with their own pulse.</strong>
               <p>
-                Create a controlled space with owner actions, instant access codes and a live
-                shared canvas for decisions that need to happen now.
+                Spin up a controlled room with owner actions, instant access codes and a live
+                shared canvas that stays inside the conversation instead of around it.
               </p>
               <div className="spotlight-metric">
-                <span>05-digit access</span>
-                <span>Moderation built in</span>
+                <span>5-digit access</span>
+                <span>Stage controls built in</span>
               </div>
             </div>
             <div className="showcase-stack">
               <div className="showcase-card">
                 <p className="eyebrow">Use case</p>
-                <h3>Client calls</h3>
-                <p>Sharper presentation than a raw meeting link.</p>
+                <h3>Team hubs</h3>
+                <p>Drop into a room that already feels organized and alive.</p>
               </div>
               <div className="showcase-card accent">
-                <p className="eyebrow">Why it converts</p>
-                <h3>People understand it instantly</h3>
-                <p>Join, talk, sketch and move. No extra tabs, no friction, no noise.</p>
+                <p className="eyebrow">Flow</p>
+                <h3>Join, talk, sketch and move</h3>
+                <p>No extra tabs, no buried controls and no dead-feeling interface.</p>
               </div>
             </div>
           </div>
@@ -158,9 +158,9 @@ export default function Home({
               <header className="panel-header">
                 <div>
                   <p className="eyebrow">Discovery</p>
-                  <h2>Browse live public rooms</h2>
+                  <h2>Browse live public hubs</h2>
                   <p className="muted">
-                    Enter open lounges that already have motion, conversation and board activity.
+                    Enter open rooms that already have motion, conversation and board activity.
                   </p>
                 </div>
                 <button className="ghost" onClick={onRefresh} type="button">
@@ -192,7 +192,7 @@ export default function Home({
             {!authed ? (
               <div className="card auth-card">
                 <p className="eyebrow">Access</p>
-                <h3>Open the product properly</h3>
+                <h3>Enter your hub first</h3>
                 <p className="muted">
                   Sign in once to create rooms, jump into live sessions and share private access
                   codes without friction.
@@ -213,7 +213,7 @@ export default function Home({
             ) : (
               <div className="card focus-card">
                 <p className="eyebrow">Quick entry</p>
-                <h3>Join by code or jump into motion</h3>
+                <h3>Join by code or jump into a live room</h3>
                 <p className="muted">
                   Use direct access for private sessions or land in a live public room instantly.
                 </p>
@@ -257,11 +257,11 @@ export default function Home({
             )}
 
             <div className="card info-card">
-              <p className="eyebrow">Positioning</p>
-              <h3>Built for compact teams and polished client-facing sessions</h3>
+              <p className="eyebrow">Why it works</p>
+              <h3>Built like a compact community tool, not a blank meeting window</h3>
               <p className="muted">
-                Instead of a bare meeting link, Comnot gives you a branded-feeling environment
-                with control, privacy and visual confidence.
+                Comnot gives rooms a stronger sense of place: visible presence, clear actions and
+                better energy than a bare utility link.
               </p>
             </div>
 

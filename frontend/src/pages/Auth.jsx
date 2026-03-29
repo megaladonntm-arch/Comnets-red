@@ -8,22 +8,22 @@ export default function AuthPage({ mode, onModeChange, onLogin, onRegister, onBa
       <main className="auth-page">
         <section className="auth-layout">
           <div className="card auth-showcase">
-            <p className="eyebrow">Commercial onboarding</p>
-            <h2>Access the room experience that feels ready for clients.</h2>
+            <p className="eyebrow">Hub access</p>
+            <h2>Step into a room flow that feels alive from the first second.</h2>
             <p className="muted">
-              Log in to create focused collaboration spaces with instant codes, live board tools
-              and owner controls that stay clean under pressure.
+              Log in to create channel-like rooms with instant codes, live board tools and owner
+              controls that stay readable while the session moves fast.
             </p>
             <div className="feature-stack">
               <div className="feature-item">
                 <span className="feature-kicker">Fast start</span>
-                <strong>Create a room in seconds</strong>
-                <p className="muted">No setup maze, no extra switching between tools.</p>
+                <strong>Open a hub in seconds</strong>
+                <p className="muted">No setup maze and no messy context switching.</p>
               </div>
               <div className="feature-item">
-                <span className="feature-kicker">Premium feel</span>
-                <strong>Sharper surface for team and client calls</strong>
-                <p className="muted">A cleaner first impression than a bare utility interface.</p>
+                <span className="feature-kicker">Room energy</span>
+                <strong>Stage, roster and whiteboard in one flow</strong>
+                <p className="muted">More like a live product space than a raw meeting link.</p>
               </div>
             </div>
           </div>

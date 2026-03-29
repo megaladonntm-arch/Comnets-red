@@ -779,11 +779,11 @@ export default function Room({ room, username, token, isOwner, onLeave }) {
       <main className="room-layout">
         <section className="room-hero card">
           <div className="room-hero-copy">
-            <p className="eyebrow">Live session</p>
+            <p className="eyebrow">Live room</p>
             <h2>{room.name}</h2>
             <p className="muted">
-              A focused collaboration lane with live media, shared whiteboard state and owner
-              controls in one surface.
+              A channel-style collaboration room with live media, shared whiteboard state and
+              owner controls in one surface.
             </p>
             <div className="room-meta-strip">
               <span className="room-meta-chip">{room.is_private ? "Private room" : "Public room"}</span>
@@ -860,7 +860,7 @@ export default function Room({ room, username, token, isOwner, onLeave }) {
               <div>
                 <p className="eyebrow">Live stage</p>
                 <h3>Video presence</h3>
-                <p className="muted">Keep everyone visible without losing the premium room feel.</p>
+                <p className="muted">Keep everyone visible without losing the room hierarchy.</p>
               </div>
               <div className="stage-badge">{videoTiles.length} feeds ready</div>
             </div>

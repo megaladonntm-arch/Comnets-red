@@ -38,11 +38,11 @@ export default function AuthPanel({ onLogin, onRegister, mode, onModeChange }) {
     <div className="card auth-card">
       <div className="auth-card-header">
         <p className="eyebrow">{activeMode === "login" ? "Welcome back" : "Create access"}</p>
-        <h3>{activeMode === "login" ? "Enter your workspace" : "Launch your profile"}</h3>
+        <h3>{activeMode === "login" ? "Enter your hub" : "Claim your profile"}</h3>
         <p className="muted">
           {activeMode === "login"
-            ? "Jump straight into live rooms, moderation controls and shared boards."
-            : "Create an account once and open private collaboration rooms in seconds."}
+            ? "Jump back into live rooms, stage controls and shared boards."
+            : "Create an account once and spin up rooms, private access codes and boards in seconds."}
         </p>
       </div>
 

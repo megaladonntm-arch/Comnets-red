@@ -15,13 +15,13 @@ export default function TopBar({
         </div>
         <div className="brand-copy">
           <p className="eyebrow">Comnot</p>
-          <h1>{roomName || "Premium voice rooms"}</h1>
+          <h1>{roomName || "Voice rooms and live hubs"}</h1>
           <p className="brand-note">
             {roomName === "Auth"
-              ? "Secure access for your collaboration space."
+              ? "Secure access into your collaboration hub."
               : roomName
-                ? "Focused session controls, live media and whiteboard sync."
-                : "Private calls, shared board and moderation in one polished surface."}
+                ? "Stage controls, live media and whiteboard sync in one room."
+                : "Private calls, shared board and moderation in one fast community-style surface."}
           </p>
         </div>
       </div>
@@ -30,7 +30,7 @@ export default function TopBar({
         <div className="top-actions">
           <div className="top-status">
             <span className="status-dot" />
-            <span>Live collaboration</span>
+            <span>Realtime online</span>
           </div>
           {authed ? (
             <>

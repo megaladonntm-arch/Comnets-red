@@ -5,14 +5,14 @@ const TEXT_LIMIT = 160;
 
 function drawBoardBackground(ctx, width, height) {
   const gradient = ctx.createLinearGradient(0, 0, 0, height);
-  gradient.addColorStop(0, "#fffaf2");
-  gradient.addColorStop(1, "#f4ecde");
+  gradient.addColorStop(0, "#171c2c");
+  gradient.addColorStop(1, "#111625");
 
   ctx.fillStyle = gradient;
   ctx.fillRect(0, 0, width, height);
 
   ctx.save();
-  ctx.strokeStyle = "rgba(26, 40, 61, 0.08)";
+  ctx.strokeStyle = "rgba(255, 255, 255, 0.05)";
   ctx.lineWidth = 1;
   for (let x = 0; x < width; x += 28) {
     ctx.beginPath();
