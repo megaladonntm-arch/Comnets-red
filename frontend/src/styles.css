@@ -173,6 +173,28 @@ textarea {
 
 .home-tabs {
   display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.home-tabs.card {
+  padding: 16px 18px;
+  border-radius: 20px;
+}
+
+.home-tabs-copy {
+  display: grid;
+  gap: 4px;
+}
+
+.home-tabs-copy h3 {
+  font-size: 1.2rem;
+}
+
+.home-tabs-actions {
+  display: flex;
   gap: 10px;
   flex-wrap: wrap;
 }
@@ -1450,6 +1472,7 @@ textarea {
   }
 
   .topbar,
+  .home-tabs,
   .panel-header,
   .room-hero,
   .section-intro,

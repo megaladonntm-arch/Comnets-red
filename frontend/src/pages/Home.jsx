@@ -67,6 +67,29 @@ export default function Home({
       />
 
       <main className="home-shell">
+        <section className="home-tabs card">
+          <div className="home-tabs-copy">
+            <p className="eyebrow">Sections</p>
+            <h3>Rooms and creators</h3>
+          </div>
+          <div className="home-tabs-actions">
+            <button
+              className={activeTab === "rooms" ? "tab active" : "tab"}
+              type="button"
+              onClick={() => setActiveTab("rooms")}
+            >
+              Rooms
+            </button>
+            <button
+              className={activeTab === "creators" ? "tab active" : "tab"}
+              type="button"
+              onClick={() => setActiveTab("creators")}
+            >
+              Creators
+            </button>
+          </div>
+        </section>
+
         <section className="hero-panel card">
           <div className="hero-copy">
             <p className="eyebrow">Realtime rooms</p>
@@ -151,23 +174,6 @@ export default function Home({
               </div>
             </div>
           </div>
-        </section>
-
-        <section className="home-tabs">
-          <button
-            className={activeTab === "rooms" ? "tab active" : "tab"}
-            type="button"
-            onClick={() => setActiveTab("rooms")}
-          >
-            Rooms
-          </button>
-          <button
-            className={activeTab === "creators" ? "tab active" : "tab"}
-            type="button"
-            onClick={() => setActiveTab("creators")}
-          >
-            Creators
-          </button>
         </section>
 
         {activeTab === "rooms" ? (
