@@ -50,6 +50,10 @@ class ApiClient {
     return this.request("/rooms");
   }
 
+  getRoom(roomId) {
+    return this.request(`/rooms/${roomId}`);
+  }
+
   createRoom(payload) {
     return this.request("/rooms/create", {
       method: "POST",

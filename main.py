@@ -1,7 +1,7 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-from database import Base, engine
+from database import init_db
 from routers import auth, rooms, ws
 
 app = FastAPI(title="Comnot")
@@ -17,8 +17,7 @@ app.add_middleware(
 
 @app.on_event("startup")
 async def on_startup():
-    async with engine.begin() as conn:
-        await conn.run_sync(Base.metadata.create_all)
+    await init_db()
 
 
 app.include_router(auth.router)

@@ -4,6 +4,7 @@ import Modal from "./Modal.jsx";
 export default function CreateRoomModal({ onClose, onCreate, onEnter }) {
   const [name, setName] = useState("");
   const [isPrivate, setIsPrivate] = useState(false);
+  const [whiteboardEnabled, setWhiteboardEnabled] = useState(false);
   const [createdRoom, setCreatedRoom] = useState(null);
 
   const disabled = useMemo(() => !name.trim(), [name]);
@@ -11,7 +12,11 @@ export default function CreateRoomModal({ onClose, onCreate, onEnter }) {
   const handleSubmit = async (event) => {
     event.preventDefault();
     if (disabled) return;
-    const room = await onCreate({ name: name.trim(), is_private: isPrivate });
+    const room = await onCreate({
+      name: name.trim(),
+      is_private: isPrivate,
+      whiteboard_enabled: whiteboardEnabled
+    });
     setCreatedRoom(room);
   };
 
@@ -41,6 +46,23 @@ export default function CreateRoomModal({ onClose, onCreate, onEnter }) {
             onClick={() => setIsPrivate(true)}
           >
             Private
+          </button>
+        </div>
+
+        <div className="toggle-group">
+          <button
+            type="button"
+            className={whiteboardEnabled ? "toggle active" : "toggle"}
+            onClick={() => setWhiteboardEnabled(true)}
+          >
+            Board on
+          </button>
+          <button
+            type="button"
+            className={whiteboardEnabled ? "toggle" : "toggle active"}
+            onClick={() => setWhiteboardEnabled(false)}
+          >
+            Board off
           </button>
         </div>
 

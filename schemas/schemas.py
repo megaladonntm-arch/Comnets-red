@@ -21,6 +21,7 @@ class Token(BaseModel):
 class RoomCreate(BaseModel):
     name: str
     is_private: bool = False
+    whiteboard_enabled: bool = False
 
 
 class RoomJoin(BaseModel):
@@ -37,6 +38,9 @@ class RoomOut(BaseModel):
     is_private: bool
     owner_id: int
     code: Optional[str] = None
+    owner_username: Optional[str] = None
+    whiteboard_enabled: bool = False
+    active_users: int = 0
 
     class Config:
         from_attributes = True
@@ -48,6 +52,7 @@ class RoomUserOut(BaseModel):
     room_id: int
     is_muted: bool
     is_banned: bool
+    is_active: bool
 
     class Config:
         from_attributes = True

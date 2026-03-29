@@ -374,9 +374,48 @@ input {
   gap: 16px;
 }
 
+.room-hero {
+  background:
+    radial-gradient(circle at top left, rgba(90, 124, 255, 0.18), transparent 32%),
+    linear-gradient(135deg, rgba(17, 20, 25, 0.98), rgba(24, 28, 34, 0.98));
+}
+
 .room-actions {
   display: flex;
   gap: 12px;
+  flex-wrap: wrap;
+}
+
+.room-alerts {
+  display: grid;
+  gap: 12px;
+}
+
+.alert-card {
+  padding: 14px 16px;
+  border-radius: 14px;
+  background: rgba(246, 195, 68, 0.12);
+  border: 1px solid rgba(246, 195, 68, 0.28);
+  color: #f6d780;
+}
+
+.alert-card.error {
+  background: rgba(255, 107, 107, 0.12);
+  border-color: rgba(255, 107, 107, 0.3);
+  color: #ffb0b0;
+}
+
+.room-overview {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 16px;
+}
+
+.status-card {
+  min-height: 140px;
+  display: grid;
+  gap: 10px;
+  align-content: start;
 }
 
 .grid {
@@ -391,6 +430,12 @@ input {
   gap: 14px;
 }
 
+.video-frame {
+  padding: 12px;
+  display: grid;
+  gap: 12px;
+}
+
 .video-tile {
   width: 100%;
   aspect-ratio: 16 / 9;
@@ -398,6 +443,42 @@ input {
   background: #0b0d12;
   object-fit: cover;
   border: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+.video-placeholder {
+  aspect-ratio: 16 / 9;
+  border-radius: 14px;
+  border: 1px dashed rgba(255, 255, 255, 0.12);
+  background:
+    radial-gradient(circle at top, rgba(76, 201, 167, 0.16), transparent 30%),
+    linear-gradient(180deg, rgba(10, 12, 16, 0.95), rgba(17, 20, 25, 0.98));
+  display: grid;
+  place-items: center;
+  text-align: center;
+}
+
+.video-placeholder span {
+  width: 72px;
+  height: 72px;
+  border-radius: 24px;
+  background: rgba(255, 255, 255, 0.08);
+  display: grid;
+  place-items: center;
+  font-size: 22px;
+  font-weight: 700;
+}
+
+.video-placeholder p {
+  margin: 12px 0 0;
+  color: var(--muted);
+}
+
+.video-caption {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  color: var(--muted);
+  font-size: 14px;
 }
 
 .user-card {
@@ -449,6 +530,114 @@ input {
   margin-top: auto;
 }
 
+.status-row {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.status-chip {
+  padding: 5px 10px;
+  border-radius: 999px;
+  font-size: 12px;
+  background: rgba(255, 255, 255, 0.06);
+  color: var(--text);
+}
+
+.status-chip.off {
+  color: var(--muted);
+  background: rgba(255, 255, 255, 0.04);
+}
+
+.whiteboard-panel {
+  display: grid;
+  gap: 18px;
+}
+
+.whiteboard-header {
+  display: flex;
+  justify-content: space-between;
+  gap: 16px;
+  align-items: flex-start;
+}
+
+.whiteboard-actions {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.board-toolbar {
+  display: flex;
+  justify-content: space-between;
+  gap: 16px;
+  align-items: center;
+  flex-wrap: wrap;
+}
+
+.color-row {
+  display: flex;
+  gap: 10px;
+}
+
+.color-swatch {
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  border: 2px solid transparent;
+  padding: 0;
+}
+
+.color-swatch.active {
+  border-color: rgba(255, 255, 255, 0.9);
+}
+
+.board-size {
+  display: flex;
+  gap: 12px;
+  align-items: center;
+}
+
+.board-size input {
+  width: 160px;
+}
+
+.whiteboard-shell {
+  position: relative;
+  min-height: 360px;
+  border-radius: 20px;
+  overflow: hidden;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  background:
+    linear-gradient(rgba(255, 255, 255, 0.05) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(255, 255, 255, 0.05) 1px, transparent 1px),
+    linear-gradient(180deg, rgba(8, 10, 14, 0.98), rgba(18, 20, 25, 0.98));
+  background-size: 28px 28px, 28px 28px, auto;
+}
+
+.whiteboard-shell.disabled {
+  opacity: 0.72;
+}
+
+.whiteboard-canvas {
+  width: 100%;
+  height: 100%;
+  min-height: 360px;
+  display: block;
+  touch-action: none;
+}
+
+.whiteboard-overlay {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  gap: 8px;
+  text-align: center;
+  background: rgba(10, 12, 16, 0.58);
+  color: var(--text);
+}
+
 @media (max-width: 900px) {
   .app {
     padding: 24px;
@@ -467,7 +656,21 @@ input {
     align-items: flex-start;
   }
 
+  .room-overview {
+    grid-template-columns: 1fr;
+  }
+
   .grid {
     grid-template-columns: 1fr;
+  }
+
+  .video-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .whiteboard-header,
+  .board-toolbar {
+    flex-direction: column;
+    align-items: flex-start;
   }
 }

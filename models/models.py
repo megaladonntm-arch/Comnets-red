@@ -23,9 +23,14 @@ class Room(Base):
     is_private = Column(Boolean, default=False, nullable=False)
     code = Column(String(5), nullable=True)
     owner_id = Column(Integer, ForeignKey("users.id"), nullable=False)
+    whiteboard_enabled = Column(Boolean, default=False, nullable=False)
 
     owner = relationship("User", back_populates="rooms")
     members = relationship("RoomUser", back_populates="room")
+
+    @property
+    def owner_username(self):
+        return self.owner.username if self.owner else None
 
 
 class RoomUser(Base):
@@ -36,6 +41,7 @@ class RoomUser(Base):
     room_id = Column(Integer, ForeignKey("rooms.id"), nullable=False)
     is_muted = Column(Boolean, default=False, nullable=False)
     is_banned = Column(Boolean, default=False, nullable=False)
+    is_active = Column(Boolean, default=False, nullable=False)
 
     user = relationship("User", back_populates="memberships")
     room = relationship("Room", back_populates="members")

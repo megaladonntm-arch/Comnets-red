@@ -75,36 +75,25 @@ export default function App() {
 
   const enterRoomAsOwner = (room) => {
     setCurrentRoom(room);
-    setIsOwner(true);
+    setIsOwner(room.owner_username === username);
   };
 
   const handleJoinRoom = async (roomId) => {
-    await api.joinRoom({ room_id: roomId });
-    const room = rooms.find((r) => r.id === roomId) || {
-      id: roomId,
-      name: "Room",
-      is_private: false,
-      owner_id: null
-    };
+    const room = await api.joinRoom({ room_id: roomId });
     setCurrentRoom(room);
-    setIsOwner(false);
+    setIsOwner(room.owner_username === username);
   };
 
   const handleJoinByCode = async (code) => {
-    const roomUser = await api.joinByCode({ code });
-    setCurrentRoom({
-      id: roomUser.room_id,
-      name: "Private room",
-      is_private: true,
-      owner_id: null
-    });
-    setIsOwner(false);
+    const room = await api.joinByCode({ code });
+    setCurrentRoom(room);
+    setIsOwner(room.owner_username === username);
   };
 
   const handleJoinRandom = async () => {
     const room = await api.joinRandom();
     setCurrentRoom(room);
-    setIsOwner(false);
+    setIsOwner(room.owner_username === username);
   };
 
   if (currentRoom) {
