@@ -488,7 +488,8 @@ textarea {
 .focus-card,
 .info-card,
 .feature-stack,
-.auth-showcase {
+.auth-showcase,
+.creators-card {
   background:
     linear-gradient(180deg, rgba(27, 33, 50, 0.98), rgba(17, 21, 33, 0.98));
 }
@@ -505,6 +506,33 @@ textarea {
 .feature-item:last-child {
   border-bottom: none;
   padding-bottom: 0;
+}
+
+.creators-card,
+.creators-head {
+  display: grid;
+  gap: 12px;
+}
+
+.creator-meta,
+.creator-tags {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.creator-meta span,
+.creator-tags span {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 8px 12px;
+  border-radius: 999px;
+  color: var(--text-soft);
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  font-size: 0.82rem;
+  font-weight: 700;
 }
 
 .feature-kicker {

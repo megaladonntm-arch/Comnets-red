@@ -272,6 +272,22 @@ export default function Home({
                 <p className="muted">Mute and manage from one place.</p>
               </div>
             </div>
+
+            <div className="card creators-card">
+              <div className="creators-head">
+                <p className="eyebrow">Creators</p>
+                <h3>red</h3>
+              </div>
+              <div className="creator-meta">
+                <span>15 age</span>
+              </div>
+              <div className="creator-tags">
+                <span>Software engineer</span>
+                <span>Programmer</span>
+                <span>Custom designer</span>
+                <span>Engineer</span>
+              </div>
+            </div>
           </section>
         </section>
       </main>
